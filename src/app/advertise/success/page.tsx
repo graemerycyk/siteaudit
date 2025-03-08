@@ -1,10 +1,24 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, Suspense } from 'react';
 import { useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 
-export default function SuccessPage() {
+// Loading component for Suspense fallback
+function LoadingState() {
+  return (
+    <div className="container mx-auto px-4 py-16 text-center">
+      <div className="max-w-md mx-auto">
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
+        <h1 className="text-2xl font-bold mb-2">Loading...</h1>
+        <p className="text-gray-600">Please wait while we process your request...</p>
+      </div>
+    </div>
+  );
+}
+
+// Main success page content
+function SuccessPageContent() {
   const searchParams = useSearchParams();
   const sessionId = searchParams.get('session_id');
   const [isLoading, setIsLoading] = useState(true);
@@ -130,5 +144,14 @@ export default function SuccessPage() {
         </div>
       </div>
     </div>
+  );
+}
+
+// Export the main page component with Suspense
+export default function SuccessPage() {
+  return (
+    <Suspense fallback={<LoadingState />}>
+      <SuccessPageContent />
+    </Suspense>
   );
 } 

@@ -150,6 +150,11 @@ If you encounter build errors during deployment:
    - Make sure your Supabase storage bucket has the correct permissions and that the URLs are accessible
    - Verify that the storage bucket policy allows public access for reading files
 
+5. **Next.js Client Component Issues**:
+   - If you see errors about `useSearchParams()` needing to be wrapped in a Suspense boundary, make sure all components using this hook are properly wrapped with `<Suspense>` as shown in the success page
+   - For other client-side hooks like `useRouter()`, follow the same pattern of wrapping the component with Suspense
+   - Read more about this requirement in the [Next.js documentation](https://nextjs.org/docs/messages/missing-suspense-with-csr-bailout)
+
 ## Project Structure
 
 ```
