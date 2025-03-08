@@ -24,6 +24,13 @@ export default function AdBanner() {
       try {
         setIsLoading(true);
         
+        // Check if Supabase client is available
+        if (!supabase) {
+          console.error('Supabase client is not initialized');
+          setIsLoading(false);
+          return;
+        }
+        
         const { data, error } = await supabase
           .from('advertisements')
           .select('id, company_name, website_url, image_url')
@@ -58,7 +65,7 @@ export default function AdBanner() {
     }, 10000);
     
     return () => clearInterval(rotationInterval);
-  }, []);
+  }, [activeAds.length]);
   
   // Update current ad index when active ads change
   useEffect(() => {

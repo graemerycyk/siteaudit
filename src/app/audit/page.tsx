@@ -340,7 +340,7 @@ export default function AuditPage() {
     return () => {
       stopCamera();
     };
-  }, []);
+  }, [stopCamera]);
   
   // Set current date on mount
   useEffect(() => {

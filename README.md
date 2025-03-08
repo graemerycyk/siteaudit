@@ -112,8 +112,24 @@ The application is configured for deployment on Vercel:
 
 1. Push your code to a GitHub repository
 2. Connect the repository to Vercel
-3. Configure the environment variables in the Vercel dashboard
+3. Configure the environment variables in the Vercel dashboard:
+   - `NEXT_PUBLIC_SUPABASE_URL`
+   - `NEXT_PUBLIC_SUPABASE_ANON_KEY`
+   - `NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY`
+   - `STRIPE_SECRET_KEY`
 4. Deploy
+
+### Troubleshooting Deployment Issues
+
+If you encounter build errors during deployment:
+
+1. **Stripe or Supabase Connection Issues**: Ensure all environment variables are correctly set in your Vercel project settings.
+
+2. **Build Errors**: Check that your Supabase tables and storage buckets are properly set up according to the instructions above.
+
+3. **API Route Errors**: The application is designed to handle cases where Stripe or Supabase clients are not initialized, but you must ensure the environment variables are correctly set for production.
+
+4. **Image Loading Issues**: Make sure your Supabase storage bucket has the correct permissions and that the URLs are accessible.
 
 ## Project Structure
 

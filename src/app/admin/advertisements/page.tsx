@@ -28,6 +28,13 @@ export default function AdminAdvertisementsPage() {
       try {
         setIsLoading(true);
         
+        // Check if Supabase client is available
+        if (!supabase) {
+          setError('Database connection not available. Please check your configuration.');
+          setIsLoading(false);
+          return;
+        }
+        
         let query = supabase
           .from('advertisements')
           .select('*')
@@ -59,6 +66,12 @@ export default function AdminAdvertisementsPage() {
   // Update advertisement status
   const updateStatus = async (id: string, newStatus: 'active' | 'rejected' | 'expired') => {
     try {
+      // Check if Supabase client is available
+      if (!supabase) {
+        alert('Database connection not available. Please check your configuration.');
+        return;
+      }
+      
       const { error } = await supabase
         .from('advertisements')
         .update({ status: newStatus })
