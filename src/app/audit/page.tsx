@@ -10,11 +10,6 @@ interface CapturedImage {
   annotation: string | null;
 }
 
-interface VideoDevice {
-  deviceId: string;
-  label: string;
-}
-
 export default function AuditPage() {
   const [stream, setStream] = useState<MediaStream | null>(null);
   const [capturedImages, setCapturedImages] = useState<CapturedImage[]>([]);
@@ -25,55 +20,23 @@ export default function AuditPage() {
   const [isDrawing, setIsDrawing] = useState(false);
   const [showPdfForm, setShowPdfForm] = useState(false);
   const [currentImageIndex, setCurrentImageIndex] = useState<number | null>(null);
-  const [videoDevices, setVideoDevices] = useState<VideoDevice[]>([]);
-  const [selectedDeviceId, setSelectedDeviceId] = useState<string>('');
-  const [cameraError, setCameraError] = useState<string | null>(null);
   
   const videoRef = useRef<HTMLVideoElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const signatureCanvasRef = useRef<HTMLCanvasElement>(null);
   const annotationCanvasRef = useRef<HTMLCanvasElement>(null);
   
-  // Get available video devices
-  const getVideoDevices = async () => {
-    try {
-      // First request permission to access media devices
-      await navigator.mediaDevices.getUserMedia({ video: true, audio: false });
-      
-      // Then enumerate devices
-      const devices = await navigator.mediaDevices.enumerateDevices();
-      const videoInputs = devices.filter(device => device.kind === 'videoinput');
-      
-      setVideoDevices(videoInputs.map(device => ({
-        deviceId: device.deviceId,
-        label: device.label || `Camera ${videoInputs.indexOf(device) + 1}`
-      })));
-      
-      if (videoInputs.length > 0) {
-        setSelectedDeviceId(videoInputs[0].deviceId);
-      }
-      
-      setCameraError(null);
-    } catch (error) {
-      console.error('Error getting video devices:', error);
-      setCameraError('Unable to access camera. Please check your browser permissions and make sure your camera is connected.');
-    }
-  };
-  
   // Initialize camera
   const startCamera = async () => {
     try {
-      setCameraError(null);
-      
-      // If no devices have been enumerated yet, get them first
-      if (videoDevices.length === 0) {
-        await getVideoDevices();
-      }
-      
-      const constraints: MediaStreamConstraints = {
-        video: selectedDeviceId 
-          ? { deviceId: { exact: selectedDeviceId } }
-          : { facingMode: 'environment' }
+      // Set specific constraints for better compatibility
+      const constraints = {
+        video: {
+          width: { ideal: 500 },
+          height: { ideal: 500 },
+          facingMode: 'environment',
+          aspectRatio: 1
+        }
       };
       
       const mediaStream = await navigator.mediaDevices.getUserMedia(constraints);
@@ -81,10 +44,17 @@ export default function AuditPage() {
       
       if (videoRef.current) {
         videoRef.current.srcObject = mediaStream;
+        
+        // Ensure video plays when ready
+        videoRef.current.onloadedmetadata = () => {
+          videoRef.current?.play().catch(e => {
+            console.error('Error playing video:', e);
+          });
+        };
       }
     } catch (error) {
       console.error('Error accessing camera:', error);
-      setCameraError('Error accessing camera. Please make sure you have granted camera permissions and your camera is working properly.');
+      alert('Error accessing camera. Please make sure you have granted camera permissions.');
     }
   };
   
@@ -96,33 +66,6 @@ export default function AuditPage() {
     }
   }, [stream]);
   
-  // Handle device change
-  const handleDeviceChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
-    const newDeviceId = e.target.value;
-    setSelectedDeviceId(newDeviceId);
-    
-    // If stream is active, stop it and restart with new device
-    if (stream) {
-      stopCamera();
-      // Use setTimeout to ensure the previous stream is fully stopped
-      setTimeout(() => {
-        startCamera();
-      }, 100);
-    }
-  };
-  
-  // Load available cameras when component mounts
-  useEffect(() => {
-    getVideoDevices();
-    
-    // Set up event listener for when devices change (e.g., camera connected/disconnected)
-    navigator.mediaDevices.addEventListener('devicechange', getVideoDevices);
-    
-    return () => {
-      navigator.mediaDevices.removeEventListener('devicechange', getVideoDevices);
-    };
-  }, []);
-  
   // Capture image
   const captureImage = () => {
     if (videoRef.current && canvasRef.current && currentTitle) {
@@ -131,9 +74,21 @@ export default function AuditPage() {
       const context = canvas.getContext('2d');
       
       if (context) {
-        canvas.width = video.videoWidth;
-        canvas.height = video.videoHeight;
-        context.drawImage(video, 0, 0, canvas.width, canvas.height);
+        // Set canvas to a square with the same dimensions
+        const size = Math.min(video.videoWidth, video.videoHeight);
+        canvas.width = size;
+        canvas.height = size;
+        
+        // Calculate the cropping position to get the center of the video
+        const xStart = (video.videoWidth - size) / 2;
+        const yStart = (video.videoHeight - size) / 2;
+        
+        // Draw the video frame onto the canvas, cropping to a square
+        context.drawImage(
+          video,
+          xStart, yStart, size, size,  // Source coordinates and dimensions
+          0, 0, size, size             // Destination coordinates and dimensions
+        );
         
         const dataUrl = canvas.toDataURL('image/png');
         setCapturedImages([...capturedImages, { dataUrl, title: currentTitle, annotation: null }]);
@@ -377,15 +332,19 @@ export default function AuditPage() {
       if (context) {
         const img = new window.Image();
         img.onload = () => {
-          canvas.width = img.width;
-          canvas.height = img.height;
-          context.drawImage(img, 0, 0, canvas.width, canvas.height);
+          // Make sure the canvas is square
+          const size = Math.min(canvas.clientWidth, canvas.clientHeight);
+          canvas.width = size;
+          canvas.height = size;
+          
+          // Draw the image maintaining aspect ratio
+          context.drawImage(img, 0, 0, size, size);
           
           // If there's an existing annotation, draw it
           if (capturedImages[index].annotation) {
             const annotationImg = new window.Image();
             annotationImg.onload = () => {
-              context.drawImage(annotationImg, 0, 0, canvas.width, canvas.height);
+              context.drawImage(annotationImg, 0, 0, size, size);
             };
             annotationImg.src = capturedImages[index].annotation as string;
           }
@@ -431,91 +390,22 @@ export default function AuditPage() {
           <div className="mb-8">
             <h2 className="text-xl font-semibold mb-4">Step 1: Capture Images</h2>
             
-            {/* Camera error message */}
-            {cameraError && (
-              <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded mb-4">
-                <p className="font-bold">Camera Error</p>
-                <p>{cameraError}</p>
-                <div className="mt-2">
-                  <h3 className="font-semibold">Troubleshooting Tips:</h3>
-                  <ul className="list-disc pl-5 mt-1">
-                    <li>Make sure you&apos;ve allowed camera access in your browser</li>
-                    <li>Check that your camera is properly connected and working</li>
-                    <li>Try using a different browser (Chrome or Firefox recommended)</li>
-                    <li>Ensure you&apos;re accessing the site via HTTPS</li>
-                    <li>Close other applications that might be using your camera</li>
-                  </ul>
-                </div>
-              </div>
-            )}
-            
             {!stream ? (
-              <div>
-                {/* Camera selection dropdown */}
-                {videoDevices.length > 0 && (
-                  <div className="mb-4">
-                    <label htmlFor="camera-select" className="block text-gray-700 mb-2">
-                      Select Camera:
-                    </label>
-                    <select
-                      id="camera-select"
-                      value={selectedDeviceId}
-                      onChange={handleDeviceChange}
-                      className="w-full md:w-1/2 border rounded px-3 py-2"
-                    >
-                      {videoDevices.map((device) => (
-                        <option key={device.deviceId} value={device.deviceId}>
-                          {device.label}
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-                )}
-                
-                <div className="flex flex-col sm:flex-row gap-4">
-                  <button
-                    onClick={startCamera}
-                    className="bg-blue-600 text-white py-2 px-4 rounded hover:bg-blue-700 transition-colors"
-                  >
-                    Start Camera
-                  </button>
-                  <button
-                    onClick={getVideoDevices}
-                    className="bg-gray-600 text-white py-2 px-4 rounded hover:bg-gray-700 transition-colors"
-                  >
-                    Refresh Camera List
-                  </button>
-                </div>
-              </div>
+              <button
+                onClick={startCamera}
+                className="bg-blue-600 text-white py-2 px-4 rounded hover:bg-blue-700 transition-colors"
+              >
+                Start Camera
+              </button>
             ) : (
               <div className="space-y-4">
-                {/* Camera selection dropdown when stream is active */}
-                {videoDevices.length > 1 && (
-                  <div className="mb-4">
-                    <label htmlFor="active-camera-select" className="block text-gray-700 mb-2">
-                      Active Camera:
-                    </label>
-                    <select
-                      id="active-camera-select"
-                      value={selectedDeviceId}
-                      onChange={handleDeviceChange}
-                      className="w-full md:w-1/2 border rounded px-3 py-2"
-                    >
-                      {videoDevices.map((device) => (
-                        <option key={device.deviceId} value={device.deviceId}>
-                          {device.label}
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-                )}
-                
-                <div className="relative">
+                <div className="relative mx-auto w-full max-w-[500px] aspect-square">
                   <video
                     ref={videoRef}
                     autoPlay
                     playsInline
-                    className="w-full max-w-lg mx-auto border rounded"
+                    muted
+                    className="w-full h-full object-cover bg-black border rounded"
                   ></video>
                   <canvas ref={canvasRef} className="hidden"></canvas>
                 </div>
@@ -554,14 +444,14 @@ export default function AuditPage() {
                   <div key={index} className="border rounded p-4">
                     <h3 className="font-medium mb-2">{image.title}</h3>
                     <div 
-                      className="relative w-full h-40 mb-2 cursor-pointer"
+                      className="relative w-full aspect-square mb-2 cursor-pointer"
                       onClick={() => selectImageForAnnotation(index)}
                     >
                       <Image
                         src={image.dataUrl}
                         alt={image.title}
                         fill
-                        className="object-cover"
+                        className="object-cover rounded"
                         unoptimized // Required for data URLs
                       />
                     </div>
@@ -591,10 +481,10 @@ export default function AuditPage() {
                   <p className="text-sm text-gray-600 mb-2">
                     Draw a red line on the image to highlight areas of concern.
                   </p>
-                  <div className="relative">
+                  <div className="relative mx-auto w-full max-w-[500px] aspect-square">
                     <canvas
                       ref={annotationCanvasRef}
-                      className="border w-full max-w-lg mx-auto"
+                      className="border w-full h-full bg-white"
                       onMouseDown={startDrawing}
                       onMouseMove={draw}
                       onMouseUp={stopDrawing}

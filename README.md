@@ -19,17 +19,6 @@ A full-stack web application built with Next.js and Supabase that serves three m
 - PDF report generation with jsPDF
 - Session-based (no external data persistence)
 
-#### Camera Troubleshooting
-
-If you experience issues with the camera in the Site Audit Tool:
-
-1. **Browser Permissions**: Ensure you've granted camera access permissions in your browser
-2. **HTTPS Required**: Camera access typically requires a secure connection (HTTPS)
-3. **Device Selection**: Use the camera selection dropdown to choose between available cameras
-4. **Browser Compatibility**: Try using Chrome or Firefox for best compatibility
-5. **Device Busy**: Close other applications or browser tabs that might be using your camera
-6. **Mobile Devices**: On mobile, ensure the app has camera permissions in your device settings
-
 ### Advertisement Selling Module
 - Ad submission form with image upload
 - Stripe payment integration
