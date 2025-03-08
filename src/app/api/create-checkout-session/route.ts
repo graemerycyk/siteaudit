@@ -12,6 +12,14 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    // Check if Supabase is initialized
+    if (!supabase) {
+      return NextResponse.json(
+        { error: 'Database connection not available' },
+        { status: 500 }
+      );
+    }
+
     // Parse the multipart form data
     const formData = await request.formData();
     

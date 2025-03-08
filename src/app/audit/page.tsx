@@ -1,7 +1,8 @@
 'use client';
 
-import { useState, useRef, useEffect } from 'react';
+import { useState, useRef, useEffect, useCallback } from 'react';
 import { jsPDF } from 'jspdf';
+import Image from 'next/image';
 
 interface CapturedImage {
   dataUrl: string;
@@ -42,13 +43,13 @@ export default function AuditPage() {
     }
   };
   
-  // Stop camera
-  const stopCamera = () => {
+  // Stop camera - wrapped in useCallback to prevent dependency changes
+  const stopCamera = useCallback(() => {
     if (stream) {
       stream.getTracks().forEach(track => track.stop());
       setStream(null);
     }
-  };
+  }, [stream]);
   
   // Capture image
   const captureImage = () => {
@@ -302,7 +303,7 @@ export default function AuditPage() {
       const context = canvas.getContext('2d');
       
       if (context) {
-        const img = new Image();
+        const img = new window.Image();
         img.onload = () => {
           canvas.width = img.width;
           canvas.height = img.height;
@@ -310,7 +311,7 @@ export default function AuditPage() {
           
           // If there's an existing annotation, draw it
           if (capturedImages[index].annotation) {
-            const annotationImg = new Image();
+            const annotationImg = new window.Image();
             annotationImg.onload = () => {
               context.drawImage(annotationImg, 0, 0, canvas.width, canvas.height);
             };
@@ -410,12 +411,18 @@ export default function AuditPage() {
                 {capturedImages.map((image, index) => (
                   <div key={index} className="border rounded p-4">
                     <h3 className="font-medium mb-2">{image.title}</h3>
-                    <img
-                      src={image.dataUrl}
-                      alt={image.title}
-                      className="w-full h-40 object-cover mb-2 cursor-pointer"
+                    <div 
+                      className="relative w-full h-40 mb-2 cursor-pointer"
                       onClick={() => selectImageForAnnotation(index)}
-                    />
+                    >
+                      <Image
+                        src={image.dataUrl}
+                        alt={image.title}
+                        fill
+                        className="object-cover"
+                        unoptimized // Required for data URLs
+                      />
+                    </div>
                     <div className="flex justify-between">
                       <button
                         onClick={() => selectImageForAnnotation(index)}

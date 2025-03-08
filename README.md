@@ -111,25 +111,44 @@ yarn dev
 The application is configured for deployment on Vercel:
 
 1. Push your code to a GitHub repository
-2. Connect the repository to Vercel
+2. Connect the repository to Vercel:
+   - Go to [Vercel](https://vercel.com) and sign in
+   - Click "Add New" > "Project"
+   - Import your GitHub repository
+   - Select the "Next.js" framework preset
+
 3. Configure the environment variables in the Vercel dashboard:
-   - `NEXT_PUBLIC_SUPABASE_URL`
-   - `NEXT_PUBLIC_SUPABASE_ANON_KEY`
-   - `NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY`
-   - `STRIPE_SECRET_KEY`
-4. Deploy
+   - In your project settings, go to "Settings" > "Environment Variables"
+   - Add the following environment variables:
+     - `NEXT_PUBLIC_SUPABASE_URL`
+     - `NEXT_PUBLIC_SUPABASE_ANON_KEY`
+     - `NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY`
+     - `STRIPE_SECRET_KEY`
+
+4. Deploy your application:
+   - Click "Deploy" to start the deployment process
+   - Vercel will build and deploy your application
 
 ### Troubleshooting Deployment Issues
 
 If you encounter build errors during deployment:
 
-1. **Stripe or Supabase Connection Issues**: Ensure all environment variables are correctly set in your Vercel project settings.
+1. **Stripe or Supabase Connection Issues**: 
+   - Ensure all environment variables are correctly set in your Vercel project settings
+   - Double-check that there are no typos in your environment variable values
+   - Make sure you're using the correct API keys from your Supabase and Stripe dashboards
 
-2. **Build Errors**: Check that your Supabase tables and storage buckets are properly set up according to the instructions above.
+2. **Build Errors**: 
+   - Check that your Supabase tables and storage buckets are properly set up according to the instructions above
+   - Verify that the Supabase storage bucket has public access enabled
 
-3. **API Route Errors**: The application is designed to handle cases where Stripe or Supabase clients are not initialized, but you must ensure the environment variables are correctly set for production.
+3. **API Route Errors**: 
+   - The application is designed to handle cases where Stripe or Supabase clients are not initialized, but you must ensure the environment variables are correctly set for production
+   - Check the Vercel deployment logs for specific error messages
 
-4. **Image Loading Issues**: Make sure your Supabase storage bucket has the correct permissions and that the URLs are accessible.
+4. **Image Loading Issues**: 
+   - Make sure your Supabase storage bucket has the correct permissions and that the URLs are accessible
+   - Verify that the storage bucket policy allows public access for reading files
 
 ## Project Structure
 

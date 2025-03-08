@@ -12,6 +12,14 @@ export async function GET(request: NextRequest) {
       );
     }
 
+    // Check if Supabase is initialized
+    if (!supabase) {
+      return NextResponse.json(
+        { error: 'Database connection not available' },
+        { status: 500 }
+      );
+    }
+
     const { searchParams } = new URL(request.url);
     const sessionId = searchParams.get('session_id');
     
