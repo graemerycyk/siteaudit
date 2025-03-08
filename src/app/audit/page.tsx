@@ -29,12 +29,12 @@ export default function AuditPage() {
   // Initialize camera
   const startCamera = async () => {
     try {
-      // Set specific constraints for better compatibility
+      // First try to get the environment camera with ideal resolution
       const constraints = {
         video: {
-          facingMode: 'environment',
-          width: { min: 640, ideal: 1280, max: 1920 },
-          height: { min: 640, ideal: 1280, max: 1920 }
+          width: { ideal: 1280 },
+          height: { ideal: 720 },
+          facingMode: 'environment'
         }
       };
       
@@ -43,20 +43,39 @@ export default function AuditPage() {
       
       if (videoRef.current) {
         videoRef.current.srcObject = mediaStream;
-        videoRef.current.style.transform = 'scaleX(-1)'; // Mirror the video for front camera
+        videoRef.current.playsInline = true;
         
         // Wait for video to be loaded before playing
-        videoRef.current.onloadedmetadata = () => {
-          if (videoRef.current) {
-            videoRef.current.play().catch(e => {
-              console.error('Error playing video:', e);
-            });
-          }
-        };
+        videoRef.current.addEventListener('loadedmetadata', () => {
+          videoRef.current?.play().catch(e => {
+            console.error('Error playing video:', e);
+          });
+        });
       }
     } catch (error) {
       console.error('Error accessing camera:', error);
-      alert('Error accessing camera. Please make sure you have granted camera permissions.');
+      // If environment camera fails, try any available camera
+      try {
+        const fallbackConstraints = {
+          video: true
+        };
+        const mediaStream = await navigator.mediaDevices.getUserMedia(fallbackConstraints);
+        setStream(mediaStream);
+        
+        if (videoRef.current) {
+          videoRef.current.srcObject = mediaStream;
+          videoRef.current.playsInline = true;
+          
+          videoRef.current.addEventListener('loadedmetadata', () => {
+            videoRef.current?.play().catch(e => {
+              console.error('Error playing video:', e);
+            });
+          });
+        }
+      } catch (fallbackError) {
+        console.error('Error accessing any camera:', fallbackError);
+        alert('Error accessing camera. Please make sure you have granted camera permissions.');
+      }
     }
   };
   
@@ -401,15 +420,15 @@ export default function AuditPage() {
               </button>
             ) : (
               <div className="space-y-4">
-                <div className="relative mx-auto w-full max-w-[500px] aspect-square overflow-hidden">
+                <div className="relative mx-auto w-full max-w-[500px] aspect-square">
                   <video
                     ref={videoRef}
                     autoPlay
                     playsInline
                     muted
-                    className="absolute inset-0 w-full h-full object-cover"
-                  />
-                  <canvas ref={canvasRef} className="hidden" />
+                    className="w-full h-full object-cover rounded"
+                  ></video>
+                  <canvas ref={canvasRef} className="hidden"></canvas>
                 </div>
                 
                 <div className="flex flex-col sm:flex-row gap-4">
