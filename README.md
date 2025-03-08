@@ -1,0 +1,137 @@
+# SiteAudit - Site Auditing & Advertising Platform
+
+A full-stack web application built with Next.js and Supabase that serves three main purposes:
+1. A marketing website
+2. A site audit tool
+3. An advertisement selling module
+
+## Features
+
+### Marketing Website
+- Responsive landing page with hero section
+- "Trusted By" section showcasing customer logos
+- Features and services overview
+- Call-to-action sections
+
+### Site Audit Tool
+- Camera capture using HTML5 `<video>` and `navigator.mediaDevices.getUserMedia`
+- Image annotation with HTML5 `<canvas>`
+- PDF report generation with jsPDF
+- Session-based (no external data persistence)
+
+### Advertisement Selling Module
+- Ad submission form with image upload
+- Stripe payment integration
+- Admin interface for managing advertisements
+- Display of active ads on the website
+
+## Tech Stack
+
+- **Frontend**: Next.js, React, TypeScript, Tailwind CSS
+- **Backend**: Supabase (PostgreSQL database, authentication, storage)
+- **Payment Processing**: Stripe
+- **PDF Generation**: jsPDF
+- **Deployment**: Vercel
+
+## Getting Started
+
+### Prerequisites
+
+- Node.js (v18 or later)
+- npm or yarn
+- Supabase account
+- Stripe account
+
+### Environment Variables
+
+Create a `.env.local` file in the root directory with the following variables:
+
+```
+# Supabase
+NEXT_PUBLIC_SUPABASE_URL=your_supabase_url
+NEXT_PUBLIC_SUPABASE_ANON_KEY=your_supabase_anon_key
+
+# Stripe
+NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY=your_stripe_publishable_key
+STRIPE_SECRET_KEY=your_stripe_secret_key
+```
+
+### Supabase Setup
+
+1. Create a new Supabase project
+2. Create the following tables:
+
+**advertisements**
+```sql
+CREATE TABLE advertisements (
+  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  company_name TEXT NOT NULL,
+  website_url TEXT NOT NULL,
+  image_url TEXT NOT NULL,
+  duration_id TEXT NOT NULL,
+  duration_name TEXT NOT NULL,
+  price INTEGER NOT NULL,
+  status TEXT NOT NULL DEFAULT 'pending',
+  payment_id TEXT,
+  payment_amount NUMERIC,
+  payment_date TIMESTAMP,
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+  updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+```
+
+3. Create a storage bucket named `advertisements` with public access
+
+### Installation
+
+1. Clone the repository
+```bash
+git clone https://github.com/yourusername/siteaudit.git
+cd siteaudit
+```
+
+2. Install dependencies
+```bash
+npm install
+# or
+yarn install
+```
+
+3. Run the development server
+```bash
+npm run dev
+# or
+yarn dev
+```
+
+4. Open [http://localhost:3000](http://localhost:3000) in your browser
+
+## Deployment
+
+The application is configured for deployment on Vercel:
+
+1. Push your code to a GitHub repository
+2. Connect the repository to Vercel
+3. Configure the environment variables in the Vercel dashboard
+4. Deploy
+
+## Project Structure
+
+```
+siteaudit/
+├── public/              # Static assets
+│   └── logos/           # Customer logos
+├── src/
+│   ├── app/             # Next.js app router
+│   │   ├── admin/       # Admin pages
+│   │   ├── advertise/   # Advertisement pages
+│   │   ├── api/         # API routes
+│   │   └── audit/       # Site audit tool
+│   ├── components/      # Reusable components
+│   └── lib/             # Utility functions and clients
+└── ...
+```
+
+## License
+
+This project is licensed under the MIT License - see the LICENSE file for details.
