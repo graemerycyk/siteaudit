@@ -32,9 +32,9 @@ export default function AuditPage() {
       // Set specific constraints for better compatibility
       const constraints = {
         video: {
-          width: { ideal: 1280 },  // Higher resolution for better quality
-          height: { ideal: 720 },
-          facingMode: 'environment'
+          facingMode: 'environment',
+          width: { min: 640, ideal: 1280, max: 1920 },
+          height: { min: 640, ideal: 1280, max: 1920 }
         }
       };
       
@@ -43,6 +43,7 @@ export default function AuditPage() {
       
       if (videoRef.current) {
         videoRef.current.srcObject = mediaStream;
+        videoRef.current.style.transform = 'scaleX(-1)'; // Mirror the video for front camera
         
         // Wait for video to be loaded before playing
         videoRef.current.onloadedmetadata = () => {
@@ -400,15 +401,15 @@ export default function AuditPage() {
               </button>
             ) : (
               <div className="space-y-4">
-                <div className="relative mx-auto w-full max-w-[500px] aspect-square bg-black">
+                <div className="relative mx-auto w-full max-w-[500px] aspect-square overflow-hidden">
                   <video
                     ref={videoRef}
                     autoPlay
                     playsInline
                     muted
                     className="absolute inset-0 w-full h-full object-cover"
-                  ></video>
-                  <canvas ref={canvasRef} className="hidden"></canvas>
+                  />
+                  <canvas ref={canvasRef} className="hidden" />
                 </div>
                 
                 <div className="flex flex-col sm:flex-row gap-4">
