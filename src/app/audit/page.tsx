@@ -20,51 +20,194 @@ export default function AuditPage() {
   const [isDrawing, setIsDrawing] = useState(false);
   const [showPdfForm, setShowPdfForm] = useState(false);
   const [currentImageIndex, setCurrentImageIndex] = useState<number | null>(null);
+  const [cameraError, setCameraError] = useState<string | null>(null);
+  const [isVideoPlaying, setIsVideoPlaying] = useState(false);
+  const [debugMode, setDebugMode] = useState(false);
+  const [debugInfo, setDebugInfo] = useState<string[]>([]);
   
   const videoRef = useRef<HTMLVideoElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const signatureCanvasRef = useRef<HTMLCanvasElement>(null);
   const annotationCanvasRef = useRef<HTMLCanvasElement>(null);
   
-  // Initialize camera
+  // Initialize camera with more robust error handling and device-specific fixes
   const startCamera = async () => {
+    setCameraError(null);
+    setDebugInfo([`Starting camera at ${new Date().toISOString()}`]);
+    
     try {
-      // Set specific constraints for better compatibility
+      // First, stop any existing stream
+      if (stream) {
+        stream.getTracks().forEach(track => track.stop());
+        setDebugInfo(prev => [...prev, 'Stopped existing stream']);
+      }
+      
+      // Check if running on iOS
+      const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) && !('MSStream' in window);
+      setDebugInfo(prev => [...prev, `Detected iOS device: ${isIOS}`]);
+      
+      // Try different constraints to maximize compatibility
       const constraints = {
-        video: {
-          width: { ideal: 500 },
-          height: { ideal: 500 },
-          facingMode: 'environment',
-          aspectRatio: 1
-        }
+        audio: false,
+        video: isIOS 
+          ? { facingMode: 'environment' } // Simpler constraints for iOS
+          : {
+              width: { ideal: 500 },
+              height: { ideal: 500 },
+              facingMode: 'environment',
+              aspectRatio: { ideal: 1 }
+            }
       };
       
+      console.log('Requesting camera access with constraints:', constraints);
+      setDebugInfo(prev => [...prev, `Requesting camera with constraints: ${JSON.stringify(constraints)}`]);
+      
       const mediaStream = await navigator.mediaDevices.getUserMedia(constraints);
+      console.log('Camera access granted, tracks:', mediaStream.getVideoTracks());
+      
+      const videoTracks = mediaStream.getVideoTracks();
+      setDebugInfo(prev => [...prev, `Got ${videoTracks.length} video tracks`]);
+      
+      if (videoTracks.length > 0) {
+        const settings = videoTracks[0].getSettings();
+        setDebugInfo(prev => [...prev, `Track settings: ${JSON.stringify(settings)}`]);
+      }
+      
+      // Check if we actually got video tracks
+      if (mediaStream.getVideoTracks().length === 0) {
+        throw new Error('No video tracks available in the media stream');
+      }
+      
       setStream(mediaStream);
+      setDebugInfo(prev => [...prev, 'Stream set successfully']);
       
       if (videoRef.current) {
+        // Set srcObject
         videoRef.current.srcObject = mediaStream;
+        setDebugInfo(prev => [...prev, 'Set srcObject on video element']);
         
-        // Ensure video plays when ready
-        videoRef.current.onloadedmetadata = () => {
-          videoRef.current?.play().catch(e => {
-            console.error('Error playing video:', e);
-          });
-        };
+        // Force play on iOS Safari
+        const playPromise = videoRef.current.play();
+        if (playPromise !== undefined) {
+          playPromise
+            .then(() => {
+              console.log('Video playback started successfully');
+              setIsVideoPlaying(true);
+              setDebugInfo(prev => [...prev, 'Video playback started successfully']);
+            })
+            .catch(error => {
+              console.error('Error playing video:', error);
+              // On iOS, autoplay might be blocked, so we'll show a play button
+              setIsVideoPlaying(false);
+              setDebugInfo(prev => [...prev, `Error playing video: ${error.message || 'Unknown error'}`]);
+            });
+        }
+      } else {
+        console.error('Video element reference is null');
+        setCameraError('Video element not found. Please refresh the page and try again.');
+        setDebugInfo(prev => [...prev, 'Video element reference is null']);
       }
     } catch (error) {
       console.error('Error accessing camera:', error);
-      alert('Error accessing camera. Please make sure you have granted camera permissions.');
+      let errorMessage = 'Error accessing camera. Please make sure you have granted camera permissions.';
+      
+      if (error instanceof Error) {
+        setDebugInfo(prev => [...prev, `Camera error: ${error.name} - ${error.message}`]);
+        
+        // Provide more specific error messages
+        if (error.name === 'NotAllowedError' || error.name === 'PermissionDeniedError') {
+          errorMessage = 'Camera access denied. Please allow camera access in your browser settings.';
+        } else if (error.name === 'NotFoundError' || error.name === 'DevicesNotFoundError') {
+          errorMessage = 'No camera found on your device.';
+        } else if (error.name === 'NotReadableError' || error.name === 'TrackStartError') {
+          errorMessage = 'Camera is already in use by another application.';
+        } else if (error.name === 'OverconstrainedError') {
+          errorMessage = 'Camera constraints not satisfied. Trying with different settings...';
+          setDebugInfo(prev => [...prev, 'Trying with simpler constraints']);
+          
+          // Try again with simpler constraints
+          try {
+            const simpleStream = await navigator.mediaDevices.getUserMedia({ 
+              video: true 
+            });
+            setStream(simpleStream);
+            setDebugInfo(prev => [...prev, 'Got stream with simple constraints']);
+            
+            if (videoRef.current) {
+              videoRef.current.srcObject = simpleStream;
+              videoRef.current.play()
+                .then(() => {
+                  setIsVideoPlaying(true);
+                  setDebugInfo(prev => [...prev, 'Video playing with simple constraints']);
+                })
+                .catch(e => {
+                  console.error('Error playing video with simple constraints:', e);
+                  setDebugInfo(prev => [...prev, `Error playing with simple constraints: ${e.message}`]);
+                });
+            }
+            return; // Exit if successful
+          } catch (simpleError) {
+            console.error('Error with simple constraints:', simpleError);
+            errorMessage = 'Could not access camera with any settings. Please check your device.';
+            if (simpleError instanceof Error) {
+              setDebugInfo(prev => [...prev, `Simple constraints error: ${simpleError.name} - ${simpleError.message}`]);
+            }
+          }
+        }
+      }
+      
+      setCameraError(errorMessage);
+    }
+  };
+  
+  // Manual play function for iOS Safari
+  const playVideo = () => {
+    if (videoRef.current && videoRef.current.paused) {
+      videoRef.current.play()
+        .then(() => {
+          console.log('Video started playing after manual interaction');
+          setIsVideoPlaying(true);
+        })
+        .catch(error => {
+          console.error('Error playing video after manual interaction:', error);
+          setCameraError('Could not play video after manual interaction. Please try again.');
+        });
     }
   };
   
   // Stop camera - wrapped in useCallback to prevent dependency changes
   const stopCamera = useCallback(() => {
     if (stream) {
-      stream.getTracks().forEach(track => track.stop());
+      console.log('Stopping camera stream');
+      stream.getTracks().forEach(track => {
+        console.log(`Stopping track: ${track.kind}, enabled: ${track.enabled}`);
+        track.stop();
+      });
       setStream(null);
+      setIsVideoPlaying(false);
+      
+      // Clear srcObject
+      if (videoRef.current) {
+        videoRef.current.srcObject = null;
+      }
     }
   }, [stream]);
+  
+  // Add event listeners for visibility changes
+  useEffect(() => {
+    const handleVisibilityChange = () => {
+      if (document.hidden && stream) {
+        // Page is hidden, stop the camera to save resources
+        stopCamera();
+      }
+    };
+    
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    
+    return () => {
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+    };
+  }, [stream, stopCamera]);
   
   // Capture image
   const captureImage = () => {
@@ -82,6 +225,11 @@ export default function AuditPage() {
         // Calculate the cropping position to get the center of the video
         const xStart = (video.videoWidth - size) / 2;
         const yStart = (video.videoHeight - size) / 2;
+        
+        // Check if we need to handle portrait orientation
+        const isPortrait = video.videoHeight > video.videoWidth;
+        setDebugInfo(prev => [...prev, `Video orientation: ${isPortrait ? 'portrait' : 'landscape'}`]);
+        setDebugInfo(prev => [...prev, `Video dimensions: ${video.videoWidth}x${video.videoHeight}`]);
         
         // Draw the video frame onto the canvas, cropping to a square
         context.drawImage(
@@ -381,6 +529,124 @@ export default function AuditPage() {
     setCurrentDate(formattedDate);
   }, []);
   
+  // Check device capabilities
+  const checkDeviceCapabilities = async () => {
+    setDebugInfo(['Checking device capabilities...']);
+    
+    try {
+      // Check if mediaDevices is supported
+      if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+        setDebugInfo(prev => [...prev, 'getUserMedia is not supported in this browser']);
+        return;
+      }
+      
+      // Get list of devices
+      const devices = await navigator.mediaDevices.enumerateDevices();
+      const videoDevices = devices.filter(device => device.kind === 'videoinput');
+      
+      setDebugInfo(prev => [
+        ...prev, 
+        `Found ${videoDevices.length} video input devices`,
+        ...videoDevices.map((device, index) => `Camera ${index + 1}: ${device.label || 'Label not available'}`)
+      ]);
+      
+      // Check browser and OS
+      const userAgent = navigator.userAgent;
+      setDebugInfo(prev => [...prev, `User Agent: ${userAgent}`]);
+      
+      // Check if running on iOS
+      const isIOS = /iPad|iPhone|iPod/.test(userAgent) && !('MSStream' in window);
+      setDebugInfo(prev => [...prev, `Running on iOS: ${isIOS}`]);
+      
+      // Check if Safari
+      const isSafari = /^((?!chrome|android).)*safari/i.test(userAgent);
+      setDebugInfo(prev => [...prev, `Using Safari: ${isSafari}`]);
+      
+    } catch (error) {
+      console.error('Error checking device capabilities:', error);
+      if (error instanceof Error) {
+        setDebugInfo(prev => [...prev, `Error checking capabilities: ${error.message}`]);
+      }
+    }
+  };
+  
+  // Add a button to check device capabilities
+  useEffect(() => {
+    if (debugMode) {
+      checkDeviceCapabilities();
+    }
+  }, [debugMode]);
+  
+  // Try a different approach for camera initialization
+  const tryAlternativeCamera = async () => {
+    setCameraError(null);
+    setDebugInfo(prev => [...prev, 'Trying alternative camera approach...']);
+    
+    try {
+      // First, stop any existing stream
+      if (stream) {
+        stream.getTracks().forEach(track => track.stop());
+      }
+      
+      // Create a video element programmatically
+      const tempVideo = document.createElement('video');
+      tempVideo.setAttribute('autoplay', '');
+      tempVideo.setAttribute('muted', '');
+      tempVideo.setAttribute('playsinline', '');
+      
+      // Try with minimal constraints
+      const simpleStream = await navigator.mediaDevices.getUserMedia({ 
+        video: true 
+      });
+      
+      setDebugInfo(prev => [...prev, 'Got stream with alternative approach']);
+      
+      // Set the stream on the video element
+      tempVideo.srcObject = simpleStream;
+      
+      // Wait for metadata to load
+      tempVideo.onloadedmetadata = () => {
+        setDebugInfo(prev => [...prev, 'Video metadata loaded']);
+        
+        // Try to play the video
+        tempVideo.play()
+          .then(() => {
+            setDebugInfo(prev => [...prev, 'Alternative video playing']);
+            
+            // If successful, set the stream on our actual video element
+            if (videoRef.current) {
+              videoRef.current.srcObject = simpleStream;
+              videoRef.current.play()
+                .then(() => {
+                  setIsVideoPlaying(true);
+                  setStream(simpleStream);
+                  setDebugInfo(prev => [...prev, 'Successfully switched to main video element']);
+                })
+                .catch(e => {
+                  setDebugInfo(prev => [...prev, `Error switching to main video: ${e.message}`]);
+                });
+            }
+          })
+          .catch(e => {
+            setDebugInfo(prev => [...prev, `Error playing alternative video: ${e.message}`]);
+            setCameraError('Could not initialize camera with alternative approach.');
+          });
+      };
+      
+      tempVideo.onerror = () => {
+        setDebugInfo(prev => [...prev, 'Error loading video metadata']);
+        setCameraError('Error loading video metadata with alternative approach.');
+      };
+      
+    } catch (error) {
+      console.error('Error with alternative camera approach:', error);
+      if (error instanceof Error) {
+        setDebugInfo(prev => [...prev, `Alternative camera error: ${error.name} - ${error.message}`]);
+      }
+      setCameraError('Could not initialize camera with alternative approach.');
+    }
+  };
+  
   return (
     <div className="container mx-auto px-4 py-8">
       <h1 className="text-3xl font-bold mb-8 text-center">Site Audit Tool</h1>
@@ -391,12 +657,37 @@ export default function AuditPage() {
             <h2 className="text-xl font-semibold mb-4">Step 1: Capture Images</h2>
             
             {!stream ? (
-              <button
-                onClick={startCamera}
-                className="bg-blue-600 text-white py-2 px-4 rounded hover:bg-blue-700 transition-colors"
-              >
-                Start Camera
-              </button>
+              <div className="flex flex-col items-center gap-4">
+                <button
+                  onClick={startCamera}
+                  className="bg-blue-600 text-white py-2 px-4 rounded hover:bg-blue-700 transition-colors"
+                >
+                  Start Camera
+                </button>
+                
+                {cameraError && (
+                  <>
+                    <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded relative mt-2 max-w-md">
+                      <strong className="font-bold">Error: </strong>
+                      <span className="block sm:inline">{cameraError}</span>
+                    </div>
+                    
+                    <button
+                      onClick={tryAlternativeCamera}
+                      className="bg-yellow-600 text-white py-2 px-4 rounded hover:bg-yellow-700 transition-colors mt-2"
+                    >
+                      Try Alternative Approach
+                    </button>
+                  </>
+                )}
+                
+                <button
+                  onClick={() => setDebugMode(!debugMode)}
+                  className="bg-gray-600 text-white py-2 px-4 rounded hover:bg-gray-700 transition-colors"
+                >
+                  {debugMode ? 'Hide Debug Info' : 'Show Debug Info'}
+                </button>
+              </div>
             ) : (
               <div className="space-y-4">
                 <div className="relative mx-auto w-full max-w-[500px] aspect-square">
@@ -406,8 +697,28 @@ export default function AuditPage() {
                     playsInline
                     muted
                     className="w-full h-full object-cover bg-black border rounded"
+                    style={{ 
+                      objectFit: 'cover',
+                      transform: 'scaleX(1)' // Fix mirroring issues on some devices
+                    }}
                   ></video>
                   <canvas ref={canvasRef} className="hidden"></canvas>
+                  
+                  {/* Play button for iOS Safari */}
+                  {!isVideoPlaying && (
+                    <div 
+                      className="absolute inset-0 flex items-center justify-center bg-black bg-opacity-50 cursor-pointer"
+                      onClick={playVideo}
+                    >
+                      <div className="bg-white bg-opacity-80 rounded-full p-4">
+                        <svg xmlns="http://www.w3.org/2000/svg" className="h-12 w-12 text-blue-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z" />
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                        </svg>
+                      </div>
+                      <p className="absolute bottom-4 text-white font-bold">Tap to start camera</p>
+                    </div>
+                  )}
                 </div>
                 
                 <div className="flex flex-col sm:flex-row gap-4">
@@ -430,7 +741,27 @@ export default function AuditPage() {
                   >
                     Stop Camera
                   </button>
+                  
+                  {/* Debug mode toggle */}
+                  <button
+                    onClick={() => setDebugMode(!debugMode)}
+                    className="bg-gray-600 text-white py-2 px-4 rounded hover:bg-gray-700 transition-colors"
+                  >
+                    {debugMode ? 'Hide Debug Info' : 'Show Debug Info'}
+                  </button>
                 </div>
+                
+                {/* Debug information panel */}
+                {debugMode && (
+                  <div className="mt-4 p-4 bg-gray-100 rounded-lg max-h-60 overflow-y-auto text-xs font-mono">
+                    <h3 className="font-bold mb-2">Debug Information:</h3>
+                    <ul className="space-y-1">
+                      {debugInfo.map((info, index) => (
+                        <li key={index} className="border-b border-gray-200 pb-1">{info}</li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
               </div>
             )}
           </div>
