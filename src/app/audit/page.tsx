@@ -375,9 +375,9 @@ export default function AuditPage() {
       const updatedImages = [...capturedImages];
       // Store the combined result as the main image
       updatedImages[currentImageIndex].dataUrl = combinedImageDataUrl;
-      // Clear the separate annotation since it's now part of the image
-      updatedImages[currentImageIndex].annotation = null;
       setCapturedImages(updatedImages);
+      
+      console.log('💾 Saved annotated image');
     }
   };
   
@@ -508,6 +508,8 @@ export default function AuditPage() {
             // Redraw the original image
             const size = Math.min(window.innerWidth - 40, 500);
             context.drawImage(img, 0, 0, size, size);
+            
+            console.log('🔄 Restored original image without annotations');
           };
         } else {
           // If no original image is stored, just clear the canvas
@@ -602,26 +604,41 @@ export default function AuditPage() {
       const context = canvas.getContext('2d');
       
       if (context) {
+        // Clear the canvas first
+        const size = Math.min(window.innerWidth - 40, 500);
+        canvas.width = size;
+        canvas.height = size;
+        context.clearRect(0, 0, canvas.width, canvas.height);
+        
+        // Load and draw the original image
         const img = new window.Image();
-        img.crossOrigin = 'anonymous'; // Add this to handle CORS issues
-        img.src = capturedImages[index].dataUrl;
+        img.crossOrigin = 'anonymous';
+        
+        // Use the original image if available, otherwise use the current image
+        const imageSource = capturedImages[index].originalDataUrl || capturedImages[index].dataUrl;
+        img.src = imageSource;
         
         img.onload = () => {
-          // Make sure the canvas is square
-          const size = Math.min(window.innerWidth - 40, 500); // Responsive size with max of 500px
-          canvas.width = size;
-          canvas.height = size;
-          
-          // Clear the canvas first
-          context.clearRect(0, 0, canvas.width, canvas.height);
-          
           // Draw the image maintaining aspect ratio
           context.drawImage(img, 0, 0, size, size);
+          
+          // Set up drawing properties
+          context.lineJoin = 'round';
+          context.lineCap = 'round';
+          context.strokeStyle = 'red';
+          context.lineWidth = 3;
+          
+          console.log('✅ Image loaded for annotation:', {
+            width: img.width,
+            height: img.height,
+            canvasWidth: canvas.width,
+            canvasHeight: canvas.height
+          });
         };
         
         // Handle image loading errors
         img.onerror = (error) => {
-          console.error('Error loading image for annotation:', error);
+          console.error('❌ Error loading image for annotation:', error);
           alert('Error loading image for annotation. Please try again.');
         };
       }
@@ -832,9 +849,52 @@ export default function AuditPage() {
     }
   }, [stream]);
   
+  // Start a new report - reset all fields and clear all images
+  const startNewReport = () => {
+    // Confirm with the user before clearing everything
+    if (capturedImages.length > 0 && !window.confirm('Are you sure you want to start a new report? This will clear all images and data.')) {
+      return;
+    }
+    
+    // Stop the camera if it's running
+    if (stream) {
+      stopCamera();
+    }
+    
+    // Reset all state
+    setCapturedImages([]);
+    setCurrentTitle('');
+    setCurrentImageIndex(null);
+    
+    // Clear signature if it exists
+    if (signatureCanvasRef.current) {
+      const context = signatureCanvasRef.current.getContext('2d');
+      if (context) {
+        context.clearRect(0, 0, signatureCanvasRef.current.width, signatureCanvasRef.current.height);
+      }
+    }
+    setSignature(null);
+    
+    // Reset PDF form
+    setShowPdfForm(false);
+    
+    console.log('🔄 Started new report - all data cleared');
+  };
+  
   return (
     <div className="container mx-auto px-4 py-8">
-      <h1 className="text-3xl font-bold mb-8 text-center">Site Audit Tool</h1>
+      <div className="flex justify-between items-center mb-6">
+        <h1 className="text-3xl font-bold">Site Audit Tool</h1>
+        <button
+          onClick={startNewReport}
+          className="bg-indigo-600 text-white py-2 px-4 rounded hover:bg-indigo-700 transition-colors flex items-center"
+        >
+          <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-2" viewBox="0 0 20 20" fill="currentColor">
+            <path fillRule="evenodd" d="M4 2a1 1 0 011 1v2.101a7.002 7.002 0 0111.601 2.566 1 1 0 11-1.885.666A5.002 5.002 0 005.999 7H9a1 1 0 010 2H4a1 1 0 01-1-1V3a1 1 0 011-1zm.008 9.057a1 1 0 011.276.61A5.002 5.002 0 0014.001 13H11a1 1 0 110-2h5a1 1 0 011 1v5a1 1 0 11-2 0v-2.101a7.002 7.002 0 01-11.601-2.566 1 1 0 01.61-1.276z" clipRule="evenodd" />
+          </svg>
+          Start New Report
+        </button>
+      </div>
       
       {showOfflineNotice && (
         <div className="bg-blue-50 border-l-4 border-blue-500 p-4 mb-6">
