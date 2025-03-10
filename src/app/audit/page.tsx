@@ -14,7 +14,6 @@ interface CapturedImage {
 export default function AuditPage() {
   const [stream, setStream] = useState<MediaStream | null>(null);
   const [capturedImages, setCapturedImages] = useState<CapturedImage[]>([]);
-  const [currentTitle, setCurrentTitle] = useState('');
   const [userName, setUserName] = useState('');
   const [currentDate, setCurrentDate] = useState('');
   const [signature, setSignature] = useState<string | null>(null);
@@ -329,28 +328,21 @@ export default function AuditPage() {
         
         const dataUrl = canvas.toDataURL('image/png');
         
-        // If a title is already provided, use it; otherwise, set the image with a temporary title
-        // and prompt the user to enter a title
-        if (currentTitle) {
-          setCapturedImages([...capturedImages, { dataUrl, title: currentTitle, annotation: null }]);
-          setCurrentTitle('');
-        } else {
-          // Add the image with a temporary title
-          const tempTitle = `Image ${capturedImages.length + 1}`;
-          const newImages = [...capturedImages, { dataUrl, title: tempTitle, annotation: null }];
-          setCapturedImages(newImages);
-          
-          // Set the current image index to the newly added image
-          setCurrentImageIndex(newImages.length - 1);
-          
-          // Focus on the title input field
-          setTimeout(() => {
-            const titleInput = document.getElementById('image-title-input');
-            if (titleInput) {
-              titleInput.focus();
-            }
-          }, 100);
-        }
+        // Add the image with a temporary title
+        const tempTitle = `Image ${capturedImages.length + 1}`;
+        const newImages = [...capturedImages, { dataUrl, title: tempTitle, annotation: null }];
+        setCapturedImages(newImages);
+        
+        // Set the current image index to the newly added image to immediately show annotation UI
+        setCurrentImageIndex(newImages.length - 1);
+        
+        // Focus on the title input field
+        setTimeout(() => {
+          const titleInput = document.getElementById('image-title-input');
+          if (titleInput) {
+            titleInput.focus();
+          }
+        }, 100);
       }
     }
   };
@@ -668,55 +660,47 @@ export default function AuditPage() {
     
     // Use setTimeout to ensure the canvas is available after state update
     setTimeout(() => {
-      // Load the image onto the annotation canvas
-      if (annotationCanvasRef.current) {
+      if (annotationCanvasRef.current && capturedImages[index]) {
         const canvas = annotationCanvasRef.current;
         const context = canvas.getContext('2d');
         
         if (context) {
-          // Clear the canvas first
-          const size = Math.min(window.innerWidth - 40, 500);
-          canvas.width = size;
-          canvas.height = size;
+          // Clear any existing drawings
           context.clearRect(0, 0, canvas.width, canvas.height);
           
-          // Load and draw the original image
-          const img = new window.Image();
-          img.crossOrigin = 'anonymous';
-          
-          // Use the original image if available, otherwise use the current image
-          const imageSource = capturedImages[index].originalDataUrl || capturedImages[index].dataUrl;
-          console.log('🖼️ Loading image for annotation from source:', imageSource.substring(0, 50) + '...');
-          img.src = imageSource;
-          
-          img.onload = () => {
-            // Draw the image maintaining aspect ratio
-            context.drawImage(img, 0, 0, size, size);
+          // If there's an existing annotation, draw it
+          if (capturedImages[index].annotation) {
+            const img = new window.Image();
+            img.onload = () => {
+              // Make sure the canvas dimensions match the displayed size
+              const canvasRect = canvas.getBoundingClientRect();
+              canvas.width = canvasRect.width;
+              canvas.height = canvasRect.height;
+              
+              // Draw the annotation
+              context.drawImage(img, 0, 0, canvas.width, canvas.height);
+              
+              // Set up the drawing style
+              context.strokeStyle = 'red';
+              context.lineWidth = 3;
+              context.lineCap = 'round';
+            };
+            img.src = capturedImages[index].annotation as string;
+          } else {
+            // Just set up the canvas for new annotations
+            // Make sure the canvas dimensions match the displayed size
+            const canvasRect = canvas.getBoundingClientRect();
+            canvas.width = canvasRect.width;
+            canvas.height = canvasRect.height;
             
-            // Set up drawing properties
-            context.lineJoin = 'round';
-            context.lineCap = 'round';
+            // Set up the drawing style
             context.strokeStyle = 'red';
             context.lineWidth = 3;
-            
-            console.log('✅ Image loaded for annotation:', {
-              width: img.width,
-              height: img.height,
-              canvasWidth: canvas.width,
-              canvasHeight: canvas.height
-            });
-          };
-          
-          // Handle image loading errors
-          img.onerror = (error) => {
-            console.error('❌ Error loading image for annotation:', error);
-            alert('Error loading image for annotation. Please try again.');
-          };
+            context.lineCap = 'round';
+          }
         }
-      } else {
-        console.error('❌ Annotation canvas not available');
       }
-    }, 50); // Short delay to ensure canvas is ready
+    }, 100);
   };
   
   // Delete image
@@ -937,7 +921,6 @@ export default function AuditPage() {
     
     // Reset all state
     setCapturedImages([]);
-    setCurrentTitle('');
     setCurrentImageIndex(null);
     
     // Clear signature if it exists
@@ -1066,30 +1049,13 @@ export default function AuditPage() {
                       Capture
                     </button>
                   </div>
-                  
-                  <div className="flex flex-col sm:flex-row gap-4">
-                    <input
-                      type="text"
-                      value={currentTitle}
-                      onChange={(e) => setCurrentTitle(e.target.value)}
-                      placeholder="Optional: Enter image title before capture"
-                      className="flex-grow border rounded px-3 py-2"
-                      disabled={isLoadingCamera}
-                    />
-                    <button
-                      onClick={captureImage}
-                      disabled={isLoadingCamera}
-                      className={`bg-green-600 text-white py-2 px-4 rounded hover:bg-green-700 transition-colors ${isLoadingCamera ? 'opacity-50 cursor-not-allowed' : ''}`}
-                    >
-                      Capture Image
-                    </button>
-                  </div>
                 </div>
               )}
             </div>
           )}
           
-          {capturedImages.length > 0 && (
+          {/* Only show the image grid if there are captured images AND no image is currently being edited */}
+          {capturedImages.length > 0 && currentImageIndex === null && (
             <div className="mb-8">
               <h2 className="text-xl font-semibold mb-4">Step 2: Review & Annotate Images</h2>
               
@@ -1127,69 +1093,79 @@ export default function AuditPage() {
                 ))}
               </div>
               
-              {currentImageIndex !== null && (
-                <div className="border rounded p-4 mb-6">
-                  <h3 className="font-medium mb-2">
-                    Editing Image
-                  </h3>
-                  
-                  <div className="mb-4">
-                    <label className="block text-gray-700 mb-1">Image Title</label>
-                    <input
-                      id="image-title-input"
-                      type="text"
-                      value={capturedImages[currentImageIndex].title}
-                      onChange={(e) => {
-                        const updatedImages = [...capturedImages];
-                        updatedImages[currentImageIndex].title = e.target.value;
-                        setCapturedImages(updatedImages);
-                      }}
-                      className="w-full border rounded px-3 py-2"
-                      placeholder="Enter a descriptive title for this image"
-                    />
-                  </div>
-                  
-                  <p className="text-sm text-gray-600 mb-2">
-                    Draw a red line on the image to highlight areas of concern.
-                  </p>
-                  <div className="relative mx-auto w-full max-w-[500px] aspect-square">
-                    <canvas
-                      ref={annotationCanvasRef}
-                      className="border w-full h-full bg-white rounded"
-                      style={{ touchAction: 'none' }}
-                      onMouseDown={startDrawing}
-                      onMouseMove={draw}
-                      onMouseUp={stopDrawing}
-                      onMouseLeave={stopDrawing}
-                      onTouchStart={startDrawing}
-                      onTouchMove={draw}
-                      onTouchEnd={stopDrawing}
-                      onTouchCancel={stopDrawing}
-                    ></canvas>
-                  </div>
-                  <div className="flex justify-end mt-2">
-                    <button
-                      onClick={clearAnnotation}
-                      className="bg-gray-600 text-white py-1 px-3 rounded hover:bg-gray-700 transition-colors mr-2"
-                    >
-                      Clear Annotation
-                    </button>
-                    <button
-                      onClick={() => setCurrentImageIndex(null)}
-                      className="bg-blue-600 text-white py-1 px-3 rounded hover:bg-blue-700 transition-colors"
-                    >
-                      Done
-                    </button>
-                  </div>
-                </div>
-              )}
+              <div className="text-center">
+                <button
+                  onClick={() => setShowPdfForm(true)}
+                  className="bg-green-600 text-white py-2 px-6 rounded hover:bg-green-700 transition-colors"
+                >
+                  Generate PDF Report
+                </button>
+              </div>
+            </div>
+          )}
+          
+          {/* Annotation UI */}
+          {currentImageIndex !== null && (
+            <div className="border rounded p-4 mb-6">
+              <h3 className="text-xl font-semibold mb-4">
+                Annotate and Save
+              </h3>
               
-              <button
-                onClick={() => setShowPdfForm(true)}
-                className="bg-green-600 text-white py-2 px-6 rounded hover:bg-green-700 transition-colors"
-              >
-                Generate PDF Report
-              </button>
+              <div className="mb-4">
+                <label className="block text-gray-700 mb-1">Rename Image</label>
+                <input
+                  id="image-title-input"
+                  type="text"
+                  value={capturedImages[currentImageIndex].title}
+                  onChange={(e) => {
+                    const updatedImages = [...capturedImages];
+                    updatedImages[currentImageIndex].title = e.target.value;
+                    setCapturedImages(updatedImages);
+                  }}
+                  className="w-full border rounded px-3 py-2"
+                  placeholder="Enter a descriptive title for this image"
+                />
+              </div>
+              
+              <p className="text-sm text-gray-600 mb-2">
+                Draw a red line on the image to highlight areas of concern.
+              </p>
+              <div className="relative mx-auto w-full max-w-[500px] aspect-square">
+                <Image
+                  src={capturedImages[currentImageIndex].dataUrl}
+                  alt={capturedImages[currentImageIndex].title}
+                  fill
+                  className="object-cover rounded absolute"
+                  unoptimized // Required for data URLs
+                />
+                <canvas
+                  ref={annotationCanvasRef}
+                  className="w-full h-full rounded absolute top-0 left-0"
+                  style={{ touchAction: 'none' }}
+                  onMouseDown={startDrawing}
+                  onMouseMove={draw}
+                  onMouseUp={stopDrawing}
+                  onMouseLeave={stopDrawing}
+                  onTouchStart={startDrawing}
+                  onTouchMove={draw}
+                  onTouchEnd={stopDrawing}
+                  onTouchCancel={stopDrawing}
+                ></canvas>
+              </div>
+              <div className="flex justify-end mt-2">
+                <button
+                  onClick={clearAnnotation}
+                  className="bg-gray-600 text-white py-1 px-3 rounded hover:bg-gray-700 transition-colors mr-2"
+                >
+                  Clear Annotation
+                </button>
+                <button
+                  onClick={() => setCurrentImageIndex(null)}
+                  className="bg-blue-600 text-white py-1 px-3 rounded hover:bg-blue-700 transition-colors"
+                >
+                  Save
+                </button>
+              </div>
             </div>
           )}
           
