@@ -336,31 +336,31 @@ export default function AdvertisePage() {
         </div>
         
         <div className="mt-8 bg-white rounded-lg shadow-md p-6">
-          <h2 className="text-xl font-semibold mb-4">Why Advertise With Us?</h2>
+          <h2 className="text-xl text-black font-semibold mb-4">Why Advertise With Us?</h2>
           <ul className="space-y-2">
             <li className="flex items-start">
               <svg className="h-5 w-5 text-green-500 mr-2 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 13l4 4L19 7"></path>
               </svg>
-              <span>Reach a targeted audience of industry professionals</span>
+              <span className="text-black">Reach a targeted audience of industry professionals</span>
             </li>
             <li className="flex items-start">
               <svg className="h-5 w-5 text-green-500 mr-2 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 13l4 4L19 7"></path>
               </svg>
-              <span>Increase brand visibility and recognition</span>
+              <span className="text-black">Increase brand visibility and recognition</span>
             </li>
             <li className="flex items-start">
               <svg className="h-5 w-5 text-green-500 mr-2 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 13l4 4L19 7"></path>
               </svg>
-              <span>Drive traffic to your website</span>
+              <span className="text-black">Drive traffic to your website</span>
             </li>
             <li className="flex items-start">
               <svg className="h-5 w-5 text-green-500 mr-2 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 13l4 4L19 7"></path>
               </svg>
-              <span>Flexible duration options to suit your budget</span>
+              <span className="text-black">Flexible duration options to suit your budget</span>
             </li>
           </ul>
         </div>

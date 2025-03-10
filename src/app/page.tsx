@@ -93,7 +93,7 @@ export default function Home() {
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 13a3 3 0 11-6 0 3 3 0 016 0z" />
                 </svg>
               </div>
-              <h3 className="text-xl font-semibold mb-2">Site Audit Tool</h3>
+              <h3 className="text-xl text-black font-semibold mb-2">Site Audit Tool</h3>
               <p className="text-black mb-4">
                 Capture images, add annotations, and generate professional PDF reports for your site inspections.
               </p>
@@ -110,7 +110,7 @@ export default function Home() {
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M20.488 9H15V3.512A9.025 9.025 0 0120.488 9z" />
                 </svg>
               </div>
-              <h3 className="text-xl font-semibold mb-2">Advertise With Us</h3>
+              <h3 className="text-xl text-black font-semibold mb-2">Advertise With Us</h3>
               <p className="text-black mb-4">
                 Why not promote your building business with SiteAudit? Our site generates 10,000s of view per month from 1000s of clients, building managers and industry professionals from across the buidling trade.
               </p>
@@ -126,7 +126,7 @@ export default function Home() {
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M18.364 5.636l-3.536 3.536m0 5.656l3.536 3.536M9.172 9.172L5.636 5.636m3.536 9.192l-3.536 3.536M21 12a9 9 0 11-18 0 9 9 0 0118 0zm-5 0a4 4 0 11-8 0 4 4 0 018 0z" />
                 </svg>
               </div>
-              <h3 className="text-xl font-semibold mb-2">Support</h3>
+              <h3 className="text-xl text-black font-semibold mb-2">Support</h3>
               <p className="text-black mb-4">
                 Our team is here to help you get the most out of SiteAudit. Contact us for assistance with any questions.
               </p>
