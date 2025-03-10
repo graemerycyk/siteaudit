@@ -20,11 +20,68 @@ export default function AuditPage() {
   const [isDrawing, setIsDrawing] = useState(false);
   const [showPdfForm, setShowPdfForm] = useState(false);
   const [currentImageIndex, setCurrentImageIndex] = useState<number | null>(null);
+  const [useDirectCapture, setUseDirectCapture] = useState(false);
+  const [showOfflineNotice, setShowOfflineNotice] = useState(true);
   
   const videoRef = useRef<HTMLVideoElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const signatureCanvasRef = useRef<HTMLCanvasElement>(null);
   const annotationCanvasRef = useRef<HTMLCanvasElement>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  
+  // Load saved data from localStorage on component mount
+  useEffect(() => {
+    try {
+      const savedImages = localStorage.getItem('siteaudit_captured_images');
+      const savedUserName = localStorage.getItem('siteaudit_user_name');
+      const savedSignature = localStorage.getItem('siteaudit_signature');
+      
+      if (savedImages) {
+        setCapturedImages(JSON.parse(savedImages));
+        console.log('📦 Loaded saved images from localStorage');
+      }
+      
+      if (savedUserName) {
+        setUserName(savedUserName);
+        console.log('📦 Loaded saved user name from localStorage');
+      }
+      
+      if (savedSignature) {
+        setSignature(savedSignature);
+        console.log('📦 Loaded saved signature from localStorage');
+      }
+    } catch (error) {
+      console.error('Error loading data from localStorage:', error);
+    }
+  }, []);
+  
+  // Save captured images to localStorage whenever they change
+  useEffect(() => {
+    try {
+      if (capturedImages.length > 0) {
+        localStorage.setItem('siteaudit_captured_images', JSON.stringify(capturedImages));
+        console.log('💾 Saved images to localStorage');
+      }
+    } catch (error) {
+      console.error('Error saving images to localStorage:', error);
+    }
+  }, [capturedImages]);
+  
+  // Save user name to localStorage whenever it changes
+  useEffect(() => {
+    if (userName) {
+      localStorage.setItem('siteaudit_user_name', userName);
+      console.log('💾 Saved user name to localStorage');
+    }
+  }, [userName]);
+  
+  // Save signature to localStorage whenever it changes
+  useEffect(() => {
+    if (signature) {
+      localStorage.setItem('siteaudit_signature', signature);
+      console.log('💾 Saved signature to localStorage');
+    }
+  }, [signature]);
   
   // Initialize camera
   const startCamera = async () => {
@@ -643,6 +700,36 @@ export default function AuditPage() {
   return (
     <div className="container mx-auto px-4 py-8">
       <h1 className="text-3xl font-bold mb-8 text-center">Site Audit Tool</h1>
+      
+      {showOfflineNotice && (
+        <div className="bg-blue-50 border-l-4 border-blue-500 p-4 mb-6">
+          <div className="flex">
+            <div className="flex-shrink-0">
+              <svg className="h-5 w-5 text-blue-500" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
+                <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clipRule="evenodd" />
+              </svg>
+            </div>
+            <div className="ml-3">
+              <p className="text-sm text-blue-700">
+                This tool works offline! Your images and data are saved locally. You can add this app to your home screen for easy access.
+              </p>
+            </div>
+            <div className="ml-auto pl-3">
+              <div className="-mx-1.5 -my-1.5">
+                <button
+                  onClick={() => setShowOfflineNotice(false)}
+                  className="inline-flex bg-blue-50 rounded-md p-1.5 text-blue-500 hover:bg-blue-100 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+                >
+                  <span className="sr-only">Dismiss</span>
+                  <svg className="h-5 w-5" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
+                    <path fillRule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clipRule="evenodd" />
+                  </svg>
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
       
       {!showPdfForm ? (
         <div>
