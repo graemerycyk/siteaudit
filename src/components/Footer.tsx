@@ -10,7 +10,7 @@ const Footer = () => {
           <div>
             <h3 className="text-xl font-bold mb-4">SiteAudit</h3>
             <p className="text-gray-300">
-              Professional site auditing and advertising solutions for your business.
+              Professional site auditing, simple, effective, free.
             </p>
           </div>
           

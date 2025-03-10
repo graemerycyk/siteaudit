@@ -1,4 +1,4 @@
-# SiteAudit - Site Auditing & Advertising Platform
+# SiteAudit - Free Building Site Auditing tool with Advertising for monetizing
 
 A full-stack web application built with Next.js and Supabase that serves three main purposes:
 1. A marketing website

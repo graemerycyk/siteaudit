@@ -16,8 +16,8 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "SiteAudit - Professional Site Auditing & Advertising",
-  description: "A comprehensive platform for site auditing and advertising solutions",
+  title: "SiteAudit - Professional Site Auditing",
+  description: "A comprehensive platform for site auditing",
 };
 
 export default function RootLayout({

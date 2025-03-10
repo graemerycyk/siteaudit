@@ -112,7 +112,7 @@ export default function Home() {
               </div>
               <h3 className="text-xl font-semibold mb-2">Advertising</h3>
               <p className="text-gray-600 mb-4">
-                Promote your business with our flexible advertising options. Reach a targeted audience of industry professionals.
+                Promote your business with our flexible advertising options. Reach 1000s of clients, building managers and industry professionals from across the buidling trade.
               </p>
               <Link href="/advertise" className="text-blue-600 hover:text-blue-800 font-medium">
                 Learn more →
@@ -143,7 +143,7 @@ export default function Home() {
         <div className="container mx-auto px-4 text-center">
           <h2 className="text-3xl font-bold mb-4">Ready to get started?</h2>
           <p className="text-xl mb-8 max-w-2xl mx-auto">
-            Join the growing number of professionals who trust SiteAudit for their site inspection and advertising needs.
+            Join the growing number of professionals who trust SiteAudit for their site inspection.
           </p>
           <Link 
             href="/audit" 
