@@ -305,7 +305,7 @@ export default function AuditPage() {
   
   // Capture image
   const captureImage = () => {
-    if (videoRef.current && canvasRef.current && currentTitle) {
+    if (videoRef.current && canvasRef.current) {
       const video = videoRef.current;
       const canvas = canvasRef.current;
       const context = canvas.getContext('2d');
@@ -328,11 +328,30 @@ export default function AuditPage() {
         );
         
         const dataUrl = canvas.toDataURL('image/png');
-        setCapturedImages([...capturedImages, { dataUrl, title: currentTitle, annotation: null }]);
-        setCurrentTitle('');
+        
+        // If a title is already provided, use it; otherwise, set the image with a temporary title
+        // and prompt the user to enter a title
+        if (currentTitle) {
+          setCapturedImages([...capturedImages, { dataUrl, title: currentTitle, annotation: null }]);
+          setCurrentTitle('');
+        } else {
+          // Add the image with a temporary title
+          const tempTitle = `Image ${capturedImages.length + 1}`;
+          const newImages = [...capturedImages, { dataUrl, title: tempTitle, annotation: null }];
+          setCapturedImages(newImages);
+          
+          // Set the current image index to the newly added image
+          setCurrentImageIndex(newImages.length - 1);
+          
+          // Focus on the title input field
+          setTimeout(() => {
+            const titleInput = document.getElementById('image-title-input');
+            if (titleInput) {
+              titleInput.focus();
+            }
+          }, 100);
+        }
       }
-    } else {
-      alert('Please enter a title for the image before capturing.');
     }
   };
   
@@ -991,7 +1010,7 @@ export default function AuditPage() {
                     disabled={isLoadingCamera}
                     className={`bg-blue-600 text-white py-2 px-4 rounded hover:bg-blue-700 transition-colors ${isLoadingCamera ? 'opacity-50 cursor-not-allowed' : ''}`}
                   >
-                    {isLoadingCamera ? 'Starting Camera...' : (wasStreamActive ? 'Allow Camera Access' : 'Start Camera')}
+                    {isLoadingCamera ? 'Starting Camera...' : (wasStreamActive ? 'Allow Camera Access' : 'Allow Camera Access')}
                   </button>
                   
                   {isLoadingCamera && (
@@ -1033,6 +1052,19 @@ export default function AuditPage() {
                       onAbort={() => console.log('🛑 onAbort event fired')}
                     ></video>
                     <canvas ref={canvasRef} className="hidden"></canvas>
+                    
+                    {/* Capture button overlay */}
+                    <button
+                      onClick={captureImage}
+                      disabled={isLoadingCamera}
+                      className={`absolute bottom-4 left-1/2 transform -translate-x-1/2 bg-green-600 text-white py-3 px-6 rounded-full hover:bg-green-700 transition-colors shadow-lg flex items-center justify-center ${isLoadingCamera ? 'opacity-50 cursor-not-allowed' : ''}`}
+                    >
+                      <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z" />
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 13a3 3 0 11-6 0 3 3 0 016 0z" />
+                      </svg>
+                      Capture
+                    </button>
                   </div>
                   
                   <div className="flex flex-col sm:flex-row gap-4">
@@ -1040,23 +1072,16 @@ export default function AuditPage() {
                       type="text"
                       value={currentTitle}
                       onChange={(e) => setCurrentTitle(e.target.value)}
-                      placeholder="Enter image title (e.g., Crack on floor in living room)"
+                      placeholder="Optional: Enter image title before capture"
                       className="flex-grow border rounded px-3 py-2"
                       disabled={isLoadingCamera}
                     />
                     <button
                       onClick={captureImage}
-                      disabled={isLoadingCamera || !currentTitle}
-                      className={`bg-green-600 text-white py-2 px-4 rounded hover:bg-green-700 transition-colors ${(isLoadingCamera || !currentTitle) ? 'opacity-50 cursor-not-allowed' : ''}`}
+                      disabled={isLoadingCamera}
+                      className={`bg-green-600 text-white py-2 px-4 rounded hover:bg-green-700 transition-colors ${isLoadingCamera ? 'opacity-50 cursor-not-allowed' : ''}`}
                     >
                       Capture Image
-                    </button>
-                    <button
-                      onClick={stopCamera}
-                      disabled={isLoadingCamera}
-                      className={`bg-red-600 text-white py-2 px-4 rounded hover:bg-red-700 transition-colors ${isLoadingCamera ? 'opacity-50 cursor-not-allowed' : ''}`}
-                    >
-                      Stop Camera
                     </button>
                   </div>
                 </div>
@@ -1105,8 +1130,25 @@ export default function AuditPage() {
               {currentImageIndex !== null && (
                 <div className="border rounded p-4 mb-6">
                   <h3 className="font-medium mb-2">
-                    Annotating: {capturedImages[currentImageIndex].title}
+                    Editing Image
                   </h3>
+                  
+                  <div className="mb-4">
+                    <label className="block text-gray-700 mb-1">Image Title</label>
+                    <input
+                      id="image-title-input"
+                      type="text"
+                      value={capturedImages[currentImageIndex].title}
+                      onChange={(e) => {
+                        const updatedImages = [...capturedImages];
+                        updatedImages[currentImageIndex].title = e.target.value;
+                        setCapturedImages(updatedImages);
+                      }}
+                      className="w-full border rounded px-3 py-2"
+                      placeholder="Enter a descriptive title for this image"
+                    />
+                  </div>
+                  
                   <p className="text-sm text-gray-600 mb-2">
                     Draw a red line on the image to highlight areas of concern.
                   </p>
