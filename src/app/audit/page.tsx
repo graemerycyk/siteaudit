@@ -90,6 +90,14 @@ export default function AuditPage() {
     console.log('🔍 startCamera function called');
     setIsLoadingCamera(true);
     
+    // Check if we're in the PDF form view or if videoRef is not available
+    if (showPdfForm || !videoRef.current) {
+      console.log('⚠️ Cannot start camera: ' + 
+        (showPdfForm ? 'In PDF form view' : 'Video element not available'));
+      setIsLoadingCamera(false);
+      return;
+    }
+    
     try {
       console.log('📱 Browser info:', 
         navigator.userAgent, 
@@ -259,22 +267,33 @@ export default function AuditPage() {
   // Handle page visibility changes to refresh camera when returning to the page
   useEffect(() => {
     const handleVisibilityChange = () => {
-      if (document.visibilityState === 'visible') {
+      // This handler will only handle automatic camera restart
+      // without prompting the user, and only when not in PDF form view
+      if (document.visibilityState === 'visible' && !showPdfForm) {
         console.log('📱 Page is now visible');
         
         // If stream was active before but is now stopped or null, restart it
         if (wasStreamActive && (!stream || stream.getVideoTracks().some(track => !track.enabled || track.readyState !== 'live'))) {
-          console.log('🔄 Restarting camera after page visibility change');
+          // Check if this is a real visibility change (tab/app switch) rather than navigation
+          const lastHiddenTime = parseInt(sessionStorage.getItem('lastPageHiddenTime') || '0');
+          const currentTime = Date.now();
+          const timeSinceHidden = currentTime - lastHiddenTime;
           
-          // Stop any existing stream first
-          if (stream) {
-            stopCamera();
+          // Only auto-restart if the page was hidden for a short time (less than 1 second)
+          // This helps with brief interruptions but avoids conflicts with the user prompt
+          if (timeSinceHidden < 1000) {
+            console.log('🔄 Auto-restarting camera after brief page visibility change');
+            
+            // Stop any existing stream first
+            if (stream) {
+              stopCamera();
+            }
+            
+            // Short delay before restarting
+            setTimeout(() => {
+              startCamera();
+            }, 300);
           }
-          
-          // Short delay before restarting
-          setTimeout(() => {
-            startCamera();
-          }, 300);
         }
       } else if (document.visibilityState === 'hidden') {
         console.log('📱 Page is now hidden');
@@ -291,7 +310,7 @@ export default function AuditPage() {
     return () => {
       document.removeEventListener('visibilitychange', handleVisibilityChange);
     };
-  }, [stream, wasStreamActive, stopCamera, startCamera]);
+  }, [stream, wasStreamActive, stopCamera, startCamera, showPdfForm]);
   
   // Capture image
   const captureImage = () => {
@@ -964,25 +983,40 @@ export default function AuditPage() {
   // Also handle page visibility changes (tab switching, etc.)
   useEffect(() => {
     const handleVisibilityChange = () => {
-      if (document.visibilityState === 'visible' && wasStreamActive) {
-        console.log('📱 Page is now visible - prompting to restart camera');
+      // Only prompt to restart camera if we're not in the PDF form view
+      // and the page became visible from being hidden (not from navigation)
+      if (document.visibilityState === 'visible' && wasStreamActive && !showPdfForm) {
+        // Check if this is a real visibility change (tab/app switch) rather than navigation
+        // We'll use a timestamp to track when the page was hidden
+        const lastHiddenTime = parseInt(sessionStorage.getItem('lastPageHiddenTime') || '0');
+        const currentTime = Date.now();
+        const timeSinceHidden = currentTime - lastHiddenTime;
         
-        // Stop any existing stream
-        if (stream) {
-          stopCamera();
+        // Only prompt if the page was hidden for more than 1 second
+        // This helps avoid false triggers during navigation
+        if (timeSinceHidden > 1000) {
+          console.log('📱 Page is now visible - prompting to restart camera');
+          
+          // Stop any existing stream
+          if (stream) {
+            stopCamera();
+          }
+          
+          // Prompt user to restart camera
+          const shouldRestart = window.confirm('Would you like to restart the camera?');
+          
+          if (shouldRestart) {
+            setTimeout(() => {
+              startCamera();
+            }, 300);
+          } else {
+            // If user declines, reset wasStreamActive
+            setWasStreamActive(false);
+          }
         }
-        
-        // Prompt user to restart camera
-        const shouldRestart = window.confirm('Would you like to restart the camera?');
-        
-        if (shouldRestart) {
-          setTimeout(() => {
-            startCamera();
-          }, 100);
-        }
-      } else if (document.visibilityState === 'hidden' && stream) {
-        console.log('📱 Page is now hidden');
-        setWasStreamActive(true);
+      } else if (document.visibilityState === 'hidden') {
+        // Store the timestamp when the page was hidden
+        sessionStorage.setItem('lastPageHiddenTime', Date.now().toString());
       }
     };
     
@@ -991,7 +1025,18 @@ export default function AuditPage() {
     return () => {
       document.removeEventListener('visibilitychange', handleVisibilityChange);
     };
-  }, [stream, wasStreamActive, stopCamera, startCamera]);
+  }, [stream, wasStreamActive, stopCamera, startCamera, showPdfForm]);
+  
+  // Add an effect to handle camera state when showing PDF form
+  useEffect(() => {
+    // When showing PDF form, stop the camera
+    if (showPdfForm && stream) {
+      console.log('📝 Showing PDF form, stopping camera');
+      stopCamera();
+      // Don't set wasStreamActive here, as we don't want to prompt to restart
+      // when returning from the PDF form
+    }
+  }, [showPdfForm, stream, stopCamera]);
   
   return (
     <div className="container mx-auto px-4 py-8">
@@ -1189,12 +1234,33 @@ export default function AuditPage() {
                 </div>
               )}
               
-              <button
-                onClick={() => setShowPdfForm(true)}
-                className="bg-blue-600 text-white py-2 px-6 rounded hover:bg-blue-700 transition-colors"
-              >
-                Generate PDF Report
-              </button>
+              <div className="flex gap-4 mt-6">
+                <button
+                  onClick={() => {
+                    // Reset wasStreamActive to prevent camera restart prompt
+                    setWasStreamActive(false);
+                    setShowPdfForm(false);
+                  }}
+                  className="bg-gray-600 text-white py-2 px-4 rounded hover:bg-gray-700 transition-colors"
+                >
+                  Back
+                </button>
+                
+                <button
+                  onClick={() => {
+                    // Stop the camera before showing the PDF form
+                    if (stream) {
+                      stopCamera();
+                    }
+                    // Reset wasStreamActive to prevent camera restart prompt
+                    setWasStreamActive(false);
+                    setShowPdfForm(true);
+                  }}
+                  className="bg-blue-600 text-white py-2 px-6 rounded hover:bg-blue-700 transition-colors ml-4"
+                >
+                  Generate PDF Report
+                </button>
+              </div>
             </div>
           )}
         </div>
@@ -1255,7 +1321,11 @@ export default function AuditPage() {
             
             <div className="flex gap-4 mt-6">
               <button
-                onClick={() => setShowPdfForm(false)}
+                onClick={() => {
+                  // Reset wasStreamActive to prevent camera restart prompt
+                  setWasStreamActive(false);
+                  setShowPdfForm(false);
+                }}
                 className="bg-gray-600 text-white py-2 px-4 rounded hover:bg-gray-700 transition-colors"
               >
                 Back
