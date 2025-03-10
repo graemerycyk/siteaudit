@@ -13,8 +13,8 @@ export default function Home() {
                 Professional Site Auditing Made Simple
               </h1>
               <p className="text-xl mb-8">
-                Capture, annotate, and document site conditions with our easy-to-use audit tool. 
-                Generate professional PDF reports in minutes.
+                Capture, annotate, and document site conditions with our easy-to-use FREE site audit tool. 
+                Generate professional site audit PDF reports in minutes.
               </p>
               <div className="flex flex-col sm:flex-row gap-4">
                 <Link 
