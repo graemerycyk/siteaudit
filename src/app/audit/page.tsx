@@ -23,6 +23,7 @@ export default function AuditPage() {
   const [currentImageIndex, setCurrentImageIndex] = useState<number | null>(null);
   const [showOfflineNotice, setShowOfflineNotice] = useState(true);
   const [isLoadingCamera, setIsLoadingCamera] = useState(false);
+  const [wasStreamActive, setWasStreamActive] = useState(false);
   
   const videoRef = useRef<HTMLVideoElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -253,6 +254,43 @@ export default function AuditPage() {
     }
     setIsLoadingCamera(false);
   }, [stream]);
+  
+  // Handle page visibility changes to refresh camera when returning to the page
+  useEffect(() => {
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === 'visible') {
+        console.log('📱 Page is now visible');
+        
+        // If stream was active before but is now stopped or null, restart it
+        if (wasStreamActive && (!stream || stream.getVideoTracks().some(track => !track.enabled || track.readyState !== 'live'))) {
+          console.log('🔄 Restarting camera after page visibility change');
+          
+          // Stop any existing stream first
+          if (stream) {
+            stopCamera();
+          }
+          
+          // Short delay before restarting
+          setTimeout(() => {
+            startCamera();
+          }, 300);
+        }
+      } else if (document.visibilityState === 'hidden') {
+        console.log('📱 Page is now hidden');
+        
+        // Remember if stream was active
+        setWasStreamActive(!!stream);
+      }
+    };
+    
+    // Add event listener for visibility changes
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    
+    // Clean up
+    return () => {
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+    };
+  }, [stream, wasStreamActive, stopCamera, startCamera]);
   
   // Capture image
   const captureImage = () => {
@@ -598,51 +636,57 @@ export default function AuditPage() {
       setCapturedImages(updatedImages);
     }
     
-    // Load the image onto the annotation canvas
-    if (annotationCanvasRef.current) {
-      const canvas = annotationCanvasRef.current;
-      const context = canvas.getContext('2d');
-      
-      if (context) {
-        // Clear the canvas first
-        const size = Math.min(window.innerWidth - 40, 500);
-        canvas.width = size;
-        canvas.height = size;
-        context.clearRect(0, 0, canvas.width, canvas.height);
+    // Use setTimeout to ensure the canvas is available after state update
+    setTimeout(() => {
+      // Load the image onto the annotation canvas
+      if (annotationCanvasRef.current) {
+        const canvas = annotationCanvasRef.current;
+        const context = canvas.getContext('2d');
         
-        // Load and draw the original image
-        const img = new window.Image();
-        img.crossOrigin = 'anonymous';
-        
-        // Use the original image if available, otherwise use the current image
-        const imageSource = capturedImages[index].originalDataUrl || capturedImages[index].dataUrl;
-        img.src = imageSource;
-        
-        img.onload = () => {
-          // Draw the image maintaining aspect ratio
-          context.drawImage(img, 0, 0, size, size);
+        if (context) {
+          // Clear the canvas first
+          const size = Math.min(window.innerWidth - 40, 500);
+          canvas.width = size;
+          canvas.height = size;
+          context.clearRect(0, 0, canvas.width, canvas.height);
           
-          // Set up drawing properties
-          context.lineJoin = 'round';
-          context.lineCap = 'round';
-          context.strokeStyle = 'red';
-          context.lineWidth = 3;
+          // Load and draw the original image
+          const img = new window.Image();
+          img.crossOrigin = 'anonymous';
           
-          console.log('✅ Image loaded for annotation:', {
-            width: img.width,
-            height: img.height,
-            canvasWidth: canvas.width,
-            canvasHeight: canvas.height
-          });
-        };
-        
-        // Handle image loading errors
-        img.onerror = (error) => {
-          console.error('❌ Error loading image for annotation:', error);
-          alert('Error loading image for annotation. Please try again.');
-        };
+          // Use the original image if available, otherwise use the current image
+          const imageSource = capturedImages[index].originalDataUrl || capturedImages[index].dataUrl;
+          console.log('🖼️ Loading image for annotation from source:', imageSource.substring(0, 50) + '...');
+          img.src = imageSource;
+          
+          img.onload = () => {
+            // Draw the image maintaining aspect ratio
+            context.drawImage(img, 0, 0, size, size);
+            
+            // Set up drawing properties
+            context.lineJoin = 'round';
+            context.lineCap = 'round';
+            context.strokeStyle = 'red';
+            context.lineWidth = 3;
+            
+            console.log('✅ Image loaded for annotation:', {
+              width: img.width,
+              height: img.height,
+              canvasWidth: canvas.width,
+              canvasHeight: canvas.height
+            });
+          };
+          
+          // Handle image loading errors
+          img.onerror = (error) => {
+            console.error('❌ Error loading image for annotation:', error);
+            alert('Error loading image for annotation. Please try again.');
+          };
+        }
+      } else {
+        console.error('❌ Annotation canvas not available');
       }
-    }
+    }, 50); // Short delay to ensure canvas is ready
   };
   
   // Delete image
@@ -883,18 +927,7 @@ export default function AuditPage() {
   
   return (
     <div className="container mx-auto px-4 py-8">
-      <div className="flex justify-between items-center mb-6">
-        <h1 className="text-3xl font-bold">Site Audit Tool</h1>
-        <button
-          onClick={startNewReport}
-          className="bg-indigo-600 text-white py-2 px-4 rounded hover:bg-indigo-700 transition-colors flex items-center"
-        >
-          <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-2" viewBox="0 0 20 20" fill="currentColor">
-            <path fillRule="evenodd" d="M4 2a1 1 0 011 1v2.101a7.002 7.002 0 0111.601 2.566 1 1 0 11-1.885.666A5.002 5.002 0 005.999 7H9a1 1 0 010 2H4a1 1 0 01-1-1V3a1 1 0 011-1zm.008 9.057a1 1 0 011.276.61A5.002 5.002 0 0014.001 13H11a1 1 0 110-2h5a1 1 0 011 1v5a1 1 0 11-2 0v-2.101a7.002 7.002 0 01-11.601-2.566 1 1 0 01.61-1.276z" clipRule="evenodd" />
-          </svg>
-          Start New Report
-        </button>
-      </div>
+      <h1 className="text-3xl font-bold mb-8 text-center">Site Audit Tool</h1>
       
       {showOfflineNotice && (
         <div className="bg-blue-50 border-l-4 border-blue-500 p-4 mb-6">
@@ -1165,6 +1198,18 @@ export default function AuditPage() {
                 Generate & Download PDF
               </button>
             </div>
+          </div>
+          
+          <div className="mt-12 text-center">
+            <button
+              onClick={startNewReport}
+              className="bg-indigo-600 text-white py-3 px-6 rounded-lg hover:bg-indigo-700 transition-colors inline-flex items-center justify-center shadow-md"
+            >
+              <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-2" viewBox="0 0 20 20" fill="currentColor">
+                <path fillRule="evenodd" d="M4 2a1 1 0 011 1v2.101a7.002 7.002 0 0111.601 2.566 1 1 0 11-1.885.666A5.002 5.002 0 005.999 7H9a1 1 0 010 2H4a1 1 0 01-1-1V3a1 1 0 011-1zm.008 9.057a1 1 0 011.276.61A5.002 5.002 0 0014.001 13H11a1 1 0 110-2h5a1 1 0 011 1v5a1 1 0 11-2 0v-2.101a7.002 7.002 0 01-11.601-2.566 1 1 0 01.61-1.276z" clipRule="evenodd" />
+              </svg>
+              Start New Report
+            </button>
           </div>
         </div>
       )}
