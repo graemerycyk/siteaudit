@@ -1123,7 +1123,7 @@ export default function AuditPage() {
               
               <button
                 onClick={() => setShowPdfForm(true)}
-                className="bg-blue-600 text-white py-2 px-6 rounded hover:bg-blue-700 transition-colors"
+                className="bg-green-600 text-white py-2 px-6 rounded hover:bg-green-700 transition-colors"
               >
                 Generate PDF Report
               </button>
