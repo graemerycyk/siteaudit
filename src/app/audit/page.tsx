@@ -92,6 +92,7 @@ export default function AuditPage() {
         'isSafari:', /^((?!chrome|android).)*safari/i.test(navigator.userAgent)
       );
       
+      
       // First try to get the environment camera with ideal resolution
       const constraints = {
         video: {
