@@ -24,6 +24,7 @@ export default function AuditPage() {
   const [showOfflineNotice, setShowOfflineNotice] = useState(true);
   const [isLoadingCamera, setIsLoadingCamera] = useState(false);
   const [wasStreamActive, setWasStreamActive] = useState(false);
+  const [reportStarted, setReportStarted] = useState(false);
   
   const videoRef = useRef<HTMLVideoElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -36,6 +37,7 @@ export default function AuditPage() {
       const savedImages = localStorage.getItem('siteaudit_captured_images');
       const savedUserName = localStorage.getItem('siteaudit_user_name');
       const savedSignature = localStorage.getItem('siteaudit_signature');
+      const savedReportStarted = localStorage.getItem('siteaudit_report_started');
       
       if (savedImages) {
         setCapturedImages(JSON.parse(savedImages));
@@ -51,24 +53,25 @@ export default function AuditPage() {
         setSignature(savedSignature);
         console.log('📦 Loaded saved signature from localStorage');
       }
+      
+      if (savedReportStarted === 'true') {
+        setReportStarted(true);
+        console.log('📦 Loaded saved report started state from localStorage');
+      }
     } catch (error) {
       console.error('Error loading data from localStorage:', error);
     }
   }, []);
   
-  // Save captured images to localStorage whenever they change
+  // Save captured images to localStorage when they change
   useEffect(() => {
-    try {
-      if (capturedImages.length > 0) {
-        localStorage.setItem('siteaudit_captured_images', JSON.stringify(capturedImages));
-        console.log('💾 Saved images to localStorage');
-      }
-    } catch (error) {
-      console.error('Error saving images to localStorage:', error);
+    if (capturedImages.length > 0) {
+      localStorage.setItem('siteaudit_captured_images', JSON.stringify(capturedImages));
+      console.log('💾 Saved images to localStorage');
     }
   }, [capturedImages]);
   
-  // Save user name to localStorage whenever it changes
+  // Save user name to localStorage when it changes
   useEffect(() => {
     if (userName) {
       localStorage.setItem('siteaudit_user_name', userName);
@@ -76,13 +79,19 @@ export default function AuditPage() {
     }
   }, [userName]);
   
-  // Save signature to localStorage whenever it changes
+  // Save signature to localStorage when it changes
   useEffect(() => {
     if (signature) {
       localStorage.setItem('siteaudit_signature', signature);
       console.log('💾 Saved signature to localStorage');
     }
   }, [signature]);
+  
+  // Save reportStarted state to localStorage when it changes
+  useEffect(() => {
+    localStorage.setItem('siteaudit_report_started', reportStarted.toString());
+    console.log('💾 Saved report started state to localStorage');
+  }, [reportStarted]);
   
   // Initialize camera
   const startCamera = async () => {
@@ -126,6 +135,7 @@ export default function AuditPage() {
       });
       
       setStream(mediaStream);
+      setWasStreamActive(false);
       
       if (videoRef.current) {
         console.log('🎥 Setting video source object');
@@ -251,6 +261,7 @@ export default function AuditPage() {
     if (stream) {
       stream.getTracks().forEach(track => track.stop());
       setStream(null);
+      setWasStreamActive(true);
     }
     setIsLoadingCamera(false);
   }, [stream]);
@@ -922,6 +933,14 @@ export default function AuditPage() {
     // Reset PDF form
     setShowPdfForm(false);
     
+    // Clear localStorage
+    localStorage.removeItem('siteaudit_captured_images');
+    localStorage.removeItem('siteaudit_signature');
+    
+    // Set report as started and start camera
+    setReportStarted(true);
+    startCamera();
+    
     console.log('🔄 Started new report - all data cleared');
   };
   
@@ -961,87 +980,89 @@ export default function AuditPage() {
       
       {!showPdfForm ? (
         <div>
-          <div className="mb-8">
-            <h2 className="text-xl font-semibold mb-4">Step 1: Capture Images</h2>
-            
-            {!stream ? (
-              <div>
-                <button
-                  onClick={startCamera}
-                  disabled={isLoadingCamera}
-                  className={`bg-blue-600 text-white py-2 px-4 rounded hover:bg-blue-700 transition-colors ${isLoadingCamera ? 'opacity-50 cursor-not-allowed' : ''}`}
-                >
-                  {isLoadingCamera ? 'Starting Camera...' : 'Start Camera'}
-                </button>
-                
-                {isLoadingCamera && (
-                  <div className="mt-4 flex items-center justify-center">
-                    <div className="animate-spin rounded-full h-8 w-8 border-t-2 border-b-2 border-blue-600 mr-2"></div>
-                    <p className="text-gray-600">Initializing camera, please wait...</p>
-                  </div>
-                )}
-              </div>
-            ) : (
-              <div className="space-y-4">
-                <div className="relative mx-auto w-full max-w-[500px] aspect-square">
+          {reportStarted && (
+            <div className="mb-8">
+              <h2 className="text-xl font-semibold mb-4">Step 1: Capture Images</h2>
+              
+              {!stream ? (
+                <div>
+                  <button
+                    onClick={startCamera}
+                    disabled={isLoadingCamera}
+                    className={`bg-blue-600 text-white py-2 px-4 rounded hover:bg-blue-700 transition-colors ${isLoadingCamera ? 'opacity-50 cursor-not-allowed' : ''}`}
+                  >
+                    {isLoadingCamera ? 'Starting Camera...' : (wasStreamActive ? 'Allow Camera Access' : 'Start Camera')}
+                  </button>
+                  
                   {isLoadingCamera && (
-                    <div className="absolute inset-0 flex items-center justify-center bg-black bg-opacity-50 z-10 rounded">
-                      <div className="text-center">
-                        <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-white mx-auto"></div>
-                        <p className="text-white mt-2">Loading camera...</p>
-                      </div>
+                    <div className="mt-4 flex items-center justify-center">
+                      <div className="animate-spin rounded-full h-8 w-8 border-t-2 border-b-2 border-blue-600 mr-2"></div>
+                      <p className="text-gray-600">Initializing camera, please wait...</p>
                     </div>
                   )}
-                  <video
-                    ref={videoRef}
-                    autoPlay
-                    playsInline
-                    muted
-                    className="w-full h-full object-cover rounded bg-black"
-                    style={{ display: 'block' }}
-                    onLoadedMetadata={() => console.log('🎬 onLoadedMetadata event fired')}
-                    onLoadedData={() => console.log('📼 onLoadedData event fired')}
-                    onPlay={() => console.log('▶️ onPlay event fired')}
-                    onPlaying={() => console.log('🎭 onPlaying event fired')}
-                    onError={(e) => console.error('❌ onError event fired', e)}
-                    onCanPlay={() => console.log('✅ onCanPlay event fired')}
-                    onCanPlayThrough={() => console.log('✅✅ onCanPlayThrough event fired')}
-                    onStalled={() => console.log('⚠️ onStalled event fired')}
-                    onSuspend={() => console.log('⏸️ onSuspend event fired')}
-                    onWaiting={() => console.log('⏳ onWaiting event fired')}
-                    onEmptied={() => console.log('🗑️ onEmptied event fired')}
-                    onAbort={() => console.log('🛑 onAbort event fired')}
-                  ></video>
-                  <canvas ref={canvasRef} className="hidden"></canvas>
                 </div>
-                
-                <div className="flex flex-col sm:flex-row gap-4">
-                  <input
-                    type="text"
-                    value={currentTitle}
-                    onChange={(e) => setCurrentTitle(e.target.value)}
-                    placeholder="Enter image title (e.g., Crack on floor in living room)"
-                    className="flex-grow border rounded px-3 py-2"
-                    disabled={isLoadingCamera}
-                  />
-                  <button
-                    onClick={captureImage}
-                    disabled={isLoadingCamera || !currentTitle}
-                    className={`bg-green-600 text-white py-2 px-4 rounded hover:bg-green-700 transition-colors ${(isLoadingCamera || !currentTitle) ? 'opacity-50 cursor-not-allowed' : ''}`}
-                  >
-                    Capture Image
-                  </button>
-                  <button
-                    onClick={stopCamera}
-                    disabled={isLoadingCamera}
-                    className={`bg-red-600 text-white py-2 px-4 rounded hover:bg-red-700 transition-colors ${isLoadingCamera ? 'opacity-50 cursor-not-allowed' : ''}`}
-                  >
-                    Stop Camera
-                  </button>
+              ) : (
+                <div className="space-y-4">
+                  <div className="relative mx-auto w-full max-w-[500px] aspect-square">
+                    {isLoadingCamera && (
+                      <div className="absolute inset-0 flex items-center justify-center bg-black bg-opacity-50 z-10 rounded">
+                        <div className="text-center">
+                          <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-white mx-auto"></div>
+                          <p className="text-white mt-2">Loading camera...</p>
+                        </div>
+                      </div>
+                    )}
+                    <video
+                      ref={videoRef}
+                      autoPlay
+                      playsInline
+                      muted
+                      className="w-full h-full object-cover rounded bg-black"
+                      style={{ display: 'block' }}
+                      onLoadedMetadata={() => console.log('🎬 onLoadedMetadata event fired')}
+                      onLoadedData={() => console.log('📼 onLoadedData event fired')}
+                      onPlay={() => console.log('▶️ onPlay event fired')}
+                      onPlaying={() => console.log('🎭 onPlaying event fired')}
+                      onError={(e) => console.error('❌ onError event fired', e)}
+                      onCanPlay={() => console.log('✅ onCanPlay event fired')}
+                      onCanPlayThrough={() => console.log('✅✅ onCanPlayThrough event fired')}
+                      onStalled={() => console.log('⚠️ onStalled event fired')}
+                      onSuspend={() => console.log('⏸️ onSuspend event fired')}
+                      onWaiting={() => console.log('⏳ onWaiting event fired')}
+                      onEmptied={() => console.log('🗑️ onEmptied event fired')}
+                      onAbort={() => console.log('🛑 onAbort event fired')}
+                    ></video>
+                    <canvas ref={canvasRef} className="hidden"></canvas>
+                  </div>
+                  
+                  <div className="flex flex-col sm:flex-row gap-4">
+                    <input
+                      type="text"
+                      value={currentTitle}
+                      onChange={(e) => setCurrentTitle(e.target.value)}
+                      placeholder="Enter image title (e.g., Crack on floor in living room)"
+                      className="flex-grow border rounded px-3 py-2"
+                      disabled={isLoadingCamera}
+                    />
+                    <button
+                      onClick={captureImage}
+                      disabled={isLoadingCamera || !currentTitle}
+                      className={`bg-green-600 text-white py-2 px-4 rounded hover:bg-green-700 transition-colors ${(isLoadingCamera || !currentTitle) ? 'opacity-50 cursor-not-allowed' : ''}`}
+                    >
+                      Capture Image
+                    </button>
+                    <button
+                      onClick={stopCamera}
+                      disabled={isLoadingCamera}
+                      className={`bg-red-600 text-white py-2 px-4 rounded hover:bg-red-700 transition-colors ${isLoadingCamera ? 'opacity-50 cursor-not-allowed' : ''}`}
+                    >
+                      Stop Camera
+                    </button>
+                  </div>
                 </div>
-              </div>
-            )}
-          </div>
+              )}
+            </div>
+          )}
           
           {capturedImages.length > 0 && (
             <div className="mb-8">
@@ -1129,17 +1150,20 @@ export default function AuditPage() {
               </button>
             </div>
           )}
-          <div className="mt-12 text-center">
-            <button
-              onClick={startNewReport}
-              className="bg-indigo-600 text-white py-3 px-6 rounded-lg hover:bg-indigo-700 transition-colors inline-flex items-center justify-center shadow-md"
-            >
-              <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-2" viewBox="0 0 20 20" fill="currentColor">
-                <path fillRule="evenodd" d="M4 2a1 1 0 011 1v2.101a7.002 7.002 0 0111.601 2.566 1 1 0 11-1.885.666A5.002 5.002 0 005.999 7H9a1 1 0 010 2H4a1 1 0 01-1-1V3a1 1 0 011-1zm.008 9.057a1 1 0 011.276.61A5.002 5.002 0 0014.001 13H11a1 1 0 110-2h5a1 1 0 011 1v5a1 1 0 11-2 0v-2.101a7.002 7.002 0 01-11.601-2.566 1 1 0 01.61-1.276z" clipRule="evenodd" />
-              </svg>
-              Start New Report
-            </button>
-          </div>
+          
+          {(!reportStarted || capturedImages.length > 0) && (
+            <div className="mt-12 text-center">
+              <button
+                onClick={startNewReport}
+                className="bg-indigo-600 text-white py-3 px-6 rounded-lg hover:bg-indigo-700 transition-colors inline-flex items-center justify-center shadow-md"
+              >
+                <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-2" viewBox="0 0 20 20" fill="currentColor">
+                  <path fillRule="evenodd" d="M4 2a1 1 0 011 1v2.101a7.002 7.002 0 0111.601 2.566 1 1 0 11-1.885.666A5.002 5.002 0 005.999 7H9a1 1 0 010 2H4a1 1 0 01-1-1V3a1 1 0 011-1zm.008 9.057a1 1 0 011.276.61A5.002 5.002 0 0014.001 13H11a1 1 0 110-2h5a1 1 0 011 1v5a1 1 0 11-2 0v-2.101a7.002 7.002 0 01-11.601-2.566 1 1 0 01.61-1.276z" clipRule="evenodd" />
+                </svg>
+                {capturedImages.length > 0 ? 'Start New Report' : 'Start Report'}
+              </button>
+            </div>
+          )}
         </div>
         
       ) : (
