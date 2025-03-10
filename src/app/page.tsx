@@ -32,7 +32,7 @@ export default function Home() {
               </div>
             </div>
             <div className="md:w-1/2">
-              <div className="relative h-64 md:h-96 w-full">
+              <div className="relative w-full aspect-[474/317]">
                 <Image
                   src="/hero-image.jpg"
                   alt="Site Audit Tool"
