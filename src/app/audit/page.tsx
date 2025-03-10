@@ -1141,7 +1141,6 @@ export default function AuditPage() {
             </button>
           </div>
         </div>
-        
       ) : (
         <div className="max-w-md mx-auto">
           <h2 className="text-xl font-semibold mb-4">Step 3: Complete Report Details</h2>
