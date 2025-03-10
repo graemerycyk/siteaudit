@@ -11,6 +11,110 @@ interface CapturedImage {
   originalDataUrl?: string;
 }
 
+// IndexedDB helper functions
+const initDB = (): Promise<IDBDatabase> => {
+  return new Promise((resolve, reject) => {
+    const request = indexedDB.open('SiteAuditDB', 1);
+    
+    request.onerror = (event) => {
+      console.error('IndexedDB error:', event);
+      reject('Error opening IndexedDB');
+    };
+    
+    request.onsuccess = (event) => {
+      const db = (event.target as IDBOpenDBRequest).result;
+      resolve(db);
+    };
+    
+    request.onupgradeneeded = (event) => {
+      const db = (event.target as IDBOpenDBRequest).result;
+      
+      // Create object stores
+      if (!db.objectStoreNames.contains('images')) {
+        db.createObjectStore('images', { keyPath: 'id' });
+      }
+      
+      if (!db.objectStoreNames.contains('settings')) {
+        db.createObjectStore('settings', { keyPath: 'key' });
+      }
+    };
+  });
+};
+
+const saveToIndexedDB = async (storeName: string, data: unknown): Promise<void> => {
+  try {
+    const db = await initDB();
+    return new Promise((resolve, reject) => {
+      const transaction = db.transaction(storeName, 'readwrite');
+      const store = transaction.objectStore(storeName);
+      const request = store.put(data);
+      
+      request.onsuccess = () => resolve();
+      request.onerror = (event) => {
+        console.error(`Error saving to ${storeName}:`, event);
+        reject(`Error saving to ${storeName}`);
+      };
+      
+      transaction.oncomplete = () => db.close();
+    });
+  } catch (error) {
+    console.error('Error in saveToIndexedDB:', error);
+    throw error;
+  }
+};
+
+const getFromIndexedDB = async (storeName: string, key: string | number): Promise<{key: string, data: unknown} | undefined> => {
+  try {
+    const db = await initDB();
+    return new Promise((resolve, reject) => {
+      const transaction = db.transaction(storeName, 'readonly');
+      const store = transaction.objectStore(storeName);
+      const request = store.get(key);
+      
+      request.onsuccess = () => resolve(request.result);
+      request.onerror = (event) => {
+        console.error(`Error getting from ${storeName}:`, event);
+        reject(`Error getting from ${storeName}`);
+      };
+      
+      transaction.oncomplete = () => db.close();
+    });
+  } catch (error) {
+    console.error('Error in getFromIndexedDB:', error);
+    throw error;
+  }
+};
+
+// Image compression function
+const compressImage = (dataUrl: string, quality: number = 0.7): Promise<string> => {
+  return new Promise((resolve, reject) => {
+    const img = new window.Image();
+    img.onload = () => {
+      const canvas = document.createElement('canvas');
+      const ctx = canvas.getContext('2d');
+      
+      // Set canvas dimensions to match image
+      canvas.width = img.width;
+      canvas.height = img.height;
+      
+      if (!ctx) {
+        reject('Could not get canvas context');
+        return;
+      }
+      
+      // Draw image to canvas
+      ctx.drawImage(img, 0, 0);
+      
+      // Get compressed data URL
+      const compressedDataUrl = canvas.toDataURL('image/jpeg', quality);
+      resolve(compressedDataUrl);
+    };
+    
+    img.onerror = () => reject('Error loading image for compression');
+    img.src = dataUrl;
+  });
+};
+
 export default function AuditPage() {
   const [stream, setStream] = useState<MediaStream | null>(null);
   const [capturedImages, setCapturedImages] = useState<CapturedImage[]>([]);
@@ -24,73 +128,202 @@ export default function AuditPage() {
   const [isLoadingCamera, setIsLoadingCamera] = useState(false);
   const [wasStreamActive, setWasStreamActive] = useState(false);
   const [reportStarted, setReportStarted] = useState(false);
+  const [dbInitialized, setDbInitialized] = useState(false);
   
   const videoRef = useRef<HTMLVideoElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const signatureCanvasRef = useRef<HTMLCanvasElement>(null);
   const annotationCanvasRef = useRef<HTMLCanvasElement>(null);
   
-  // Load saved data from localStorage on component mount
+  // Initialize IndexedDB
   useEffect(() => {
-    try {
-      const savedImages = localStorage.getItem('siteaudit_captured_images');
-      const savedUserName = localStorage.getItem('siteaudit_user_name');
-      const savedSignature = localStorage.getItem('siteaudit_signature');
-      const savedReportStarted = localStorage.getItem('siteaudit_report_started');
-      
-      if (savedImages) {
-        setCapturedImages(JSON.parse(savedImages));
-        console.log('📦 Loaded saved images from localStorage');
+    const setupDB = async () => {
+      try {
+        await initDB();
+        setDbInitialized(true);
+        console.log('📦 IndexedDB initialized');
+      } catch (error) {
+        console.error('Error initializing IndexedDB:', error);
+        // Fall back to localStorage if IndexedDB fails
+        alert('Your browser may have limited storage capabilities. Some features might not work properly.');
       }
-      
-      if (savedUserName) {
-        setUserName(savedUserName);
-        console.log('📦 Loaded saved user name from localStorage');
-      }
-      
-      if (savedSignature) {
-        setSignature(savedSignature);
-        console.log('📦 Loaded saved signature from localStorage');
-      }
-      
-      if (savedReportStarted === 'true') {
-        setReportStarted(true);
-        console.log('📦 Loaded saved report started state from localStorage');
-      }
-    } catch (error) {
-      console.error('Error loading data from localStorage:', error);
-    }
+    };
+    
+    setupDB();
   }, []);
   
-  // Save captured images to localStorage when they change
+  // Load saved data on component mount
   useEffect(() => {
-    if (capturedImages.length > 0) {
-      localStorage.setItem('siteaudit_captured_images', JSON.stringify(capturedImages));
-      console.log('💾 Saved images to localStorage');
+    const loadSavedData = async () => {
+      try {
+        if (!dbInitialized) return;
+        
+        // Try to load from IndexedDB first
+        try {
+          const savedImages = await getFromIndexedDB('settings', 'capturedImages');
+          if (savedImages && savedImages.data) {
+            setCapturedImages(savedImages.data as CapturedImage[]);
+            console.log('📦 Loaded saved images from IndexedDB');
+          }
+          
+          const savedUserName = await getFromIndexedDB('settings', 'userName');
+          if (savedUserName && savedUserName.data) {
+            setUserName(savedUserName.data as string);
+            console.log('📦 Loaded saved user name from IndexedDB');
+          }
+          
+          const savedSignature = await getFromIndexedDB('settings', 'signature');
+          if (savedSignature && savedSignature.data) {
+            setSignature(savedSignature.data as string);
+            console.log('📦 Loaded saved signature from IndexedDB');
+          }
+          
+          const savedReportStarted = await getFromIndexedDB('settings', 'reportStarted');
+          if (savedReportStarted && savedReportStarted.data === true) {
+            setReportStarted(true);
+            console.log('📦 Loaded saved report started state from IndexedDB');
+          }
+        } catch (dbError) {
+          console.error('Error loading from IndexedDB, falling back to localStorage:', dbError);
+          
+          // Fall back to localStorage
+          const savedImages = localStorage.getItem('siteaudit_captured_images');
+          const savedUserName = localStorage.getItem('siteaudit_user_name');
+          const savedSignature = localStorage.getItem('siteaudit_signature');
+          const savedReportStarted = localStorage.getItem('siteaudit_report_started');
+          
+          if (savedImages) {
+            setCapturedImages(JSON.parse(savedImages));
+            console.log('📦 Loaded saved images from localStorage');
+          }
+          
+          if (savedUserName) {
+            setUserName(savedUserName);
+            console.log('📦 Loaded saved user name from localStorage');
+          }
+          
+          if (savedSignature) {
+            setSignature(savedSignature);
+            console.log('📦 Loaded saved signature from localStorage');
+          }
+          
+          if (savedReportStarted === 'true') {
+            setReportStarted(true);
+            console.log('📦 Loaded saved report started state from localStorage');
+          }
+        }
+      } catch (error) {
+        console.error('Error loading data:', error);
+      }
+    };
+    
+    if (dbInitialized) {
+      loadSavedData();
     }
-  }, [capturedImages]);
+  }, [dbInitialized]);
   
-  // Save user name to localStorage when it changes
+  // Save captured images when they change
   useEffect(() => {
-    if (userName) {
-      localStorage.setItem('siteaudit_user_name', userName);
-      console.log('💾 Saved user name to localStorage');
+    const saveImages = async () => {
+      if (!dbInitialized || capturedImages.length === 0) return;
+      
+      try {
+        // Save to IndexedDB
+        await saveToIndexedDB('settings', { key: 'capturedImages', data: capturedImages });
+        console.log('💾 Saved images to IndexedDB');
+      } catch (dbError) {
+        console.error('Error saving to IndexedDB, falling back to localStorage:', dbError);
+        
+        // Fall back to localStorage with a try-catch to handle quota errors
+        try {
+          localStorage.setItem('siteaudit_captured_images', JSON.stringify(capturedImages));
+          console.log('💾 Saved images to localStorage');
+        } catch (localStorageError) {
+          console.error('Error saving to localStorage:', localStorageError);
+          alert('Storage limit reached. Please export your report or delete some images.');
+        }
+      }
+    };
+    
+    if (capturedImages.length > 0 && dbInitialized) {
+      saveImages();
     }
-  }, [userName]);
+  }, [capturedImages, dbInitialized]);
   
-  // Save signature to localStorage when it changes
+  // Save user name when it changes
   useEffect(() => {
-    if (signature) {
-      localStorage.setItem('siteaudit_signature', signature);
-      console.log('💾 Saved signature to localStorage');
+    const saveUserName = async () => {
+      if (!dbInitialized || !userName) return;
+      
+      try {
+        await saveToIndexedDB('settings', { key: 'userName', data: userName });
+        console.log('💾 Saved user name to IndexedDB');
+      } catch (error) {
+        console.error('Error saving user name to IndexedDB:', error);
+        
+        try {
+          localStorage.setItem('siteaudit_user_name', userName);
+          console.log('💾 Saved user name to localStorage');
+        } catch (localStorageError) {
+          console.error('Error saving user name to localStorage:', localStorageError);
+        }
+      }
+    };
+    
+    if (userName && dbInitialized) {
+      saveUserName();
     }
-  }, [signature]);
+  }, [userName, dbInitialized]);
   
-  // Save reportStarted state to localStorage when it changes
+  // Save signature when it changes
   useEffect(() => {
-    localStorage.setItem('siteaudit_report_started', reportStarted.toString());
-    console.log('💾 Saved report started state to localStorage');
-  }, [reportStarted]);
+    const saveSignature = async () => {
+      if (!dbInitialized || !signature) return;
+      
+      try {
+        await saveToIndexedDB('settings', { key: 'signature', data: signature });
+        console.log('💾 Saved signature to IndexedDB');
+      } catch (error) {
+        console.error('Error saving signature to IndexedDB:', error);
+        
+        try {
+          localStorage.setItem('siteaudit_signature', signature);
+          console.log('💾 Saved signature to localStorage');
+        } catch (localStorageError) {
+          console.error('Error saving signature to localStorage:', localStorageError);
+        }
+      }
+    };
+    
+    if (signature && dbInitialized) {
+      saveSignature();
+    }
+  }, [signature, dbInitialized]);
+  
+  // Save reportStarted state when it changes
+  useEffect(() => {
+    const saveReportStarted = async () => {
+      if (!dbInitialized) return;
+      
+      try {
+        await saveToIndexedDB('settings', { key: 'reportStarted', data: reportStarted });
+        console.log('💾 Saved report started state to IndexedDB');
+      } catch (error) {
+        console.error('Error saving report started state to IndexedDB:', error);
+        
+        try {
+          localStorage.setItem('siteaudit_report_started', reportStarted.toString());
+          console.log('💾 Saved report started state to localStorage');
+        } catch (localStorageError) {
+          console.error('Error saving report started state to localStorage:', localStorageError);
+        }
+      }
+    };
+    
+    if (dbInitialized) {
+      saveReportStarted();
+    }
+  }, [reportStarted, dbInitialized]);
   
   // Initialize camera
   const startCamera = async () => {
@@ -303,7 +536,7 @@ export default function AuditPage() {
   }, [stream, wasStreamActive, stopCamera, startCamera]);
   
   // Capture image
-  const captureImage = () => {
+  const captureImage = async () => {
     if (videoRef.current && canvasRef.current) {
       const video = videoRef.current;
       const canvas = canvasRef.current;
@@ -326,7 +559,18 @@ export default function AuditPage() {
           0, 0, size, size             // Destination coordinates and dimensions
         );
         
-        const dataUrl = canvas.toDataURL('image/png');
+        // Get the data URL and compress it
+        const rawDataUrl = canvas.toDataURL('image/png');
+        let dataUrl;
+        
+        try {
+          // Compress the image to reduce storage requirements
+          dataUrl = await compressImage(rawDataUrl, 0.7);
+          console.log('🗜️ Image compressed successfully');
+        } catch (error) {
+          console.error('Error compressing image:', error);
+          dataUrl = rawDataUrl; // Fall back to uncompressed image
+        }
         
         // Add the image with a temporary title
         const tempTitle = `Image ${capturedImages.length + 1}`;
@@ -420,7 +664,7 @@ export default function AuditPage() {
     }
   };
   
-  const stopDrawing = (e?: React.MouseEvent<HTMLCanvasElement> | React.TouchEvent<HTMLCanvasElement>) => {
+  const stopDrawing = async (e?: React.MouseEvent<HTMLCanvasElement> | React.TouchEvent<HTMLCanvasElement>) => {
     // Prevent default behavior if event is provided
     if (e) e.preventDefault();
     
@@ -428,13 +672,23 @@ export default function AuditPage() {
       setIsDrawing(false);
       
       const canvas = annotationCanvasRef.current;
-      // Save the combined image+annotation as the new image
-      const combinedImageDataUrl = canvas.toDataURL('image/png');
+      // Get the raw data URL
+      const rawDataUrl = canvas.toDataURL('image/png');
+      let combinedImageDataUrl;
+      
+      try {
+        // Compress the image to reduce storage requirements
+        combinedImageDataUrl = await compressImage(rawDataUrl, 0.7);
+        console.log('🗜️ Annotation compressed successfully');
+      } catch (error) {
+        console.error('Error compressing annotation:', error);
+        combinedImageDataUrl = rawDataUrl; // Fall back to uncompressed image
+      }
       
       // Update the captured image with the combined image+annotation
       const updatedImages = [...capturedImages];
       // Store the combined result as the main image
-      updatedImages[currentImageIndex].dataUrl = combinedImageDataUrl;
+      updatedImages[currentImageIndex].annotation = combinedImageDataUrl;
       setCapturedImages(updatedImages);
       
       console.log('💾 Saved annotated image');
@@ -668,35 +922,23 @@ export default function AuditPage() {
           // Clear any existing drawings
           context.clearRect(0, 0, canvas.width, canvas.height);
           
+          // Make sure the canvas dimensions match the displayed size
+          const canvasRect = canvas.getBoundingClientRect();
+          canvas.width = canvasRect.width;
+          canvas.height = canvasRect.height;
+          
+          // Set up the drawing style
+          context.strokeStyle = 'red';
+          context.lineWidth = 3;
+          context.lineCap = 'round';
+          
           // If there's an existing annotation, draw it
           if (capturedImages[index].annotation) {
             const img = new window.Image();
             img.onload = () => {
-              // Make sure the canvas dimensions match the displayed size
-              const canvasRect = canvas.getBoundingClientRect();
-              canvas.width = canvasRect.width;
-              canvas.height = canvasRect.height;
-              
-              // Draw the annotation
               context.drawImage(img, 0, 0, canvas.width, canvas.height);
-              
-              // Set up the drawing style
-              context.strokeStyle = 'red';
-              context.lineWidth = 3;
-              context.lineCap = 'round';
             };
             img.src = capturedImages[index].annotation as string;
-          } else {
-            // Just set up the canvas for new annotations
-            // Make sure the canvas dimensions match the displayed size
-            const canvasRect = canvas.getBoundingClientRect();
-            canvas.width = canvasRect.width;
-            canvas.height = canvasRect.height;
-            
-            // Set up the drawing style
-            context.strokeStyle = 'red';
-            context.lineWidth = 3;
-            context.lineCap = 'round';
           }
         }
       }
@@ -938,6 +1180,17 @@ export default function AuditPage() {
     // Clear localStorage
     localStorage.removeItem('siteaudit_captured_images');
     localStorage.removeItem('siteaudit_signature');
+    
+    // Clear IndexedDB data
+    if (dbInitialized) {
+      try {
+        saveToIndexedDB('settings', { key: 'capturedImages', data: [] });
+        saveToIndexedDB('settings', { key: 'signature', data: null });
+        console.log('🗑️ Cleared IndexedDB data');
+      } catch (error) {
+        console.error('Error clearing IndexedDB data:', error);
+      }
+    }
     
     // Set report as started and start camera
     setReportStarted(true);
