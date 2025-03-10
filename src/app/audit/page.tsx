@@ -35,10 +35,13 @@ export default function AuditPage() {
           width: { ideal: 1280 },
           height: { ideal: 720 },
           facingMode: 'environment'
-        }
+        },
+        audio: false
       };
       
+      console.log('Requesting camera with constraints:', constraints);
       const mediaStream = await navigator.mediaDevices.getUserMedia(constraints);
+      console.log('Camera stream obtained:', mediaStream.getVideoTracks()[0].getSettings());
       setStream(mediaStream);
       
       if (videoRef.current) {
@@ -47,19 +50,28 @@ export default function AuditPage() {
         
         // Wait for video to be loaded before playing
         videoRef.current.addEventListener('loadedmetadata', () => {
-          videoRef.current?.play().catch(e => {
-            console.error('Error playing video:', e);
-          });
+          console.log('Video metadata loaded, attempting to play');
+          if (videoRef.current) {
+            videoRef.current.play()
+              .then(() => console.log('Video playback started successfully'))
+              .catch(e => {
+                console.error('Error playing video:', e);
+                alert('Error playing video. Please check console for details.');
+              });
+          }
         });
       }
     } catch (error) {
       console.error('Error accessing camera:', error);
       // If environment camera fails, try any available camera
       try {
+        console.log('Falling back to default camera');
         const fallbackConstraints = {
-          video: true
+          video: true,
+          audio: false
         };
         const mediaStream = await navigator.mediaDevices.getUserMedia(fallbackConstraints);
+        console.log('Fallback camera stream obtained:', mediaStream.getVideoTracks()[0].getSettings());
         setStream(mediaStream);
         
         if (videoRef.current) {
@@ -67,9 +79,15 @@ export default function AuditPage() {
           videoRef.current.playsInline = true;
           
           videoRef.current.addEventListener('loadedmetadata', () => {
-            videoRef.current?.play().catch(e => {
-              console.error('Error playing video:', e);
-            });
+            console.log('Fallback video metadata loaded, attempting to play');
+            if (videoRef.current) {
+              videoRef.current.play()
+                .then(() => console.log('Fallback video playback started successfully'))
+                .catch(e => {
+                  console.error('Error playing fallback video:', e);
+                  alert('Error playing video. Please check console for details.');
+                });
+            }
           });
         }
       } catch (fallbackError) {
@@ -402,6 +420,25 @@ export default function AuditPage() {
     setCurrentDate(formattedDate);
   }, []);
   
+  // Check camera capabilities on mount
+  useEffect(() => {
+    const checkCameraCapabilities = async () => {
+      try {
+        // Just check if we can enumerate devices
+        const devices = await navigator.mediaDevices.enumerateDevices();
+        const videoDevices = devices.filter(device => device.kind === 'videoinput');
+        console.log('Available video devices:', videoDevices.length);
+        videoDevices.forEach((device, index) => {
+          console.log(`Camera ${index + 1}:`, device.label || `Camera ${index + 1} (no label available)`);
+        });
+      } catch (error) {
+        console.error('Error checking camera capabilities:', error);
+      }
+    };
+    
+    checkCameraCapabilities();
+  }, []);
+  
   return (
     <div className="container mx-auto px-4 py-8">
       <h1 className="text-3xl font-bold mb-8 text-center">Site Audit Tool</h1>
@@ -426,7 +463,8 @@ export default function AuditPage() {
                     autoPlay
                     playsInline
                     muted
-                    className="w-full h-full object-cover rounded"
+                    className="w-full h-full object-cover rounded bg-black"
+                    style={{ display: 'block' }}
                   ></video>
                   <canvas ref={canvasRef} className="hidden"></canvas>
                 </div>
