@@ -8,6 +8,7 @@ interface CapturedImage {
   dataUrl: string;
   title: string;
   annotation: string | null;
+  originalDataUrl?: string;
 }
 
 export default function AuditPage() {
@@ -21,6 +22,7 @@ export default function AuditPage() {
   const [showPdfForm, setShowPdfForm] = useState(false);
   const [currentImageIndex, setCurrentImageIndex] = useState<number | null>(null);
   const [showOfflineNotice, setShowOfflineNotice] = useState(true);
+  const [isLoadingCamera, setIsLoadingCamera] = useState(false);
   
   const videoRef = useRef<HTMLVideoElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -84,6 +86,8 @@ export default function AuditPage() {
   // Initialize camera
   const startCamera = async () => {
     console.log('🔍 startCamera function called');
+    setIsLoadingCamera(true);
+    
     try {
       console.log('📱 Browser info:', 
         navigator.userAgent, 
@@ -106,6 +110,7 @@ export default function AuditPage() {
       if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
         console.error('❌ MediaDevices API not supported in this browser');
         alert('Camera API not supported in this browser. Please try a different browser.');
+        setIsLoadingCamera(false);
         return;
       }
       
@@ -147,10 +152,12 @@ export default function AuditPage() {
                   readyState: videoRef.current?.readyState,
                   error: videoRef.current?.error
                 });
+                setIsLoadingCamera(false);
               })
               .catch(e => {
                 console.error('❌ Error playing video:', e);
                 alert('Error playing video. Please check console for details.');
+                setIsLoadingCamera(false);
               });
           }
         });
@@ -158,9 +165,11 @@ export default function AuditPage() {
         // Add error event listener
         videoRef.current.addEventListener('error', (e) => {
           console.error('❌ Video element error:', e);
+          setIsLoadingCamera(false);
         });
       } else {
         console.error('❌ videoRef.current is null');
+        setIsLoadingCamera(false);
       }
     } catch (error) {
       console.error('❌ Error accessing camera:', error);
@@ -209,10 +218,12 @@ export default function AuditPage() {
                     readyState: videoRef.current?.readyState,
                     error: videoRef.current?.error
                   });
+                  setIsLoadingCamera(false);
                 })
                 .catch(e => {
                   console.error('❌ Error playing fallback video:', e);
                   alert('Error playing video. Please check console for details.');
+                  setIsLoadingCamera(false);
                 });
             }
           });
@@ -220,13 +231,16 @@ export default function AuditPage() {
           // Add error event listener
           videoRef.current.addEventListener('error', (e) => {
             console.error('❌ Fallback video element error:', e);
+            setIsLoadingCamera(false);
           });
         } else {
           console.error('❌ videoRef.current is null for fallback');
+          setIsLoadingCamera(false);
         }
       } catch (fallbackError) {
         console.error('❌ Error accessing any camera:', fallbackError);
         alert('Error accessing camera. Please make sure you have granted camera permissions.');
+        setIsLoadingCamera(false);
       }
     }
   };
@@ -237,6 +251,7 @@ export default function AuditPage() {
       stream.getTracks().forEach(track => track.stop());
       setStream(null);
     }
+    setIsLoadingCamera(false);
   }, [stream]);
   
   // Capture image
@@ -353,11 +368,15 @@ export default function AuditPage() {
       setIsDrawing(false);
       
       const canvas = annotationCanvasRef.current;
-      const annotationDataUrl = canvas.toDataURL('image/png');
+      // Save the combined image+annotation as the new image
+      const combinedImageDataUrl = canvas.toDataURL('image/png');
       
-      // Update the captured image with the annotation
+      // Update the captured image with the combined image+annotation
       const updatedImages = [...capturedImages];
-      updatedImages[currentImageIndex].annotation = annotationDataUrl;
+      // Store the combined result as the main image
+      updatedImages[currentImageIndex].dataUrl = combinedImageDataUrl;
+      // Clear the separate annotation since it's now part of the image
+      updatedImages[currentImageIndex].annotation = null;
       setCapturedImages(updatedImages);
     }
   };
@@ -468,12 +487,43 @@ export default function AuditPage() {
       const context = canvas.getContext('2d');
       
       if (context) {
-        context.clearRect(0, 0, canvas.width, canvas.height);
+        // Check if we have the original image stored
+        const originalDataUrl = capturedImages[currentImageIndex].originalDataUrl;
         
-        // Update the captured image with null annotation
-        const updatedImages = [...capturedImages];
-        updatedImages[currentImageIndex].annotation = null;
-        setCapturedImages(updatedImages);
+        if (originalDataUrl) {
+          // Restore the original image without annotations
+          const updatedImages = [...capturedImages];
+          updatedImages[currentImageIndex].dataUrl = originalDataUrl;
+          setCapturedImages(updatedImages);
+          
+          // Load the original image onto the canvas
+          const img = new window.Image();
+          img.crossOrigin = 'anonymous';
+          img.src = originalDataUrl;
+          
+          img.onload = () => {
+            // Clear the canvas
+            context.clearRect(0, 0, canvas.width, canvas.height);
+            
+            // Redraw the original image
+            const size = Math.min(window.innerWidth - 40, 500);
+            context.drawImage(img, 0, 0, size, size);
+          };
+        } else {
+          // If no original image is stored, just clear the canvas
+          context.clearRect(0, 0, canvas.width, canvas.height);
+          
+          // Reload the current image
+          const img = new window.Image();
+          img.crossOrigin = 'anonymous';
+          img.src = capturedImages[currentImageIndex].dataUrl;
+          
+          img.onload = () => {
+            // Redraw the image
+            const size = Math.min(window.innerWidth - 40, 500);
+            context.drawImage(img, 0, 0, size, size);
+          };
+        }
       }
     }
   };
@@ -500,7 +550,7 @@ export default function AuditPage() {
     pdf.text(`Date: ${currentDate}`, 20, yPosition);
     yPosition += 20;
     
-    // Add images and annotations
+    // Add images (which now include annotations)
     capturedImages.forEach((image, index) => {
       // Add page break if needed
       if (yPosition > 230) {
@@ -513,18 +563,10 @@ export default function AuditPage() {
       pdf.text(`${index + 1}. ${image.title}`, 20, yPosition);
       yPosition += 10;
       
-      // Add image
+      // Add image (which now includes any annotations)
       try {
         pdf.addImage(image.dataUrl, 'PNG', 20, yPosition, 170, 100);
-        yPosition += 105;
-        
-        // Add annotation if exists
-        if (image.annotation) {
-          pdf.addImage(image.annotation, 'PNG', 20, yPosition, 170, 100);
-          yPosition += 110;
-        } else {
-          yPosition += 10;
-        }
+        yPosition += 110; // Adjusted spacing since we don't have separate annotations anymore
       } catch (error) {
         console.error('Error adding image to PDF:', error);
       }
@@ -547,6 +589,13 @@ export default function AuditPage() {
   const selectImageForAnnotation = (index: number) => {
     setCurrentImageIndex(index);
     
+    // Store the original image if not already stored
+    if (!capturedImages[index].originalDataUrl) {
+      const updatedImages = [...capturedImages];
+      updatedImages[index].originalDataUrl = capturedImages[index].dataUrl;
+      setCapturedImages(updatedImages);
+    }
+    
     // Load the image onto the annotation canvas
     if (annotationCanvasRef.current) {
       const canvas = annotationCanvasRef.current;
@@ -568,17 +617,6 @@ export default function AuditPage() {
           
           // Draw the image maintaining aspect ratio
           context.drawImage(img, 0, 0, size, size);
-          
-          // If there's an existing annotation, draw it
-          if (capturedImages[index].annotation) {
-            const annotationImg = new window.Image();
-            annotationImg.crossOrigin = 'anonymous'; // Add this to handle CORS issues
-            annotationImg.src = capturedImages[index].annotation as string;
-            
-            annotationImg.onload = () => {
-              context.drawImage(annotationImg, 0, 0, size, size);
-            };
-          }
         };
         
         // Handle image loading errors
@@ -834,15 +872,33 @@ export default function AuditPage() {
             <h2 className="text-xl font-semibold mb-4">Step 1: Capture Images</h2>
             
             {!stream ? (
-              <button
-                onClick={startCamera}
-                className="bg-blue-600 text-white py-2 px-4 rounded hover:bg-blue-700 transition-colors"
-              >
-                Start Camera
-              </button>
+              <div>
+                <button
+                  onClick={startCamera}
+                  disabled={isLoadingCamera}
+                  className={`bg-blue-600 text-white py-2 px-4 rounded hover:bg-blue-700 transition-colors ${isLoadingCamera ? 'opacity-50 cursor-not-allowed' : ''}`}
+                >
+                  {isLoadingCamera ? 'Starting Camera...' : 'Start Camera'}
+                </button>
+                
+                {isLoadingCamera && (
+                  <div className="mt-4 flex items-center justify-center">
+                    <div className="animate-spin rounded-full h-8 w-8 border-t-2 border-b-2 border-blue-600 mr-2"></div>
+                    <p className="text-gray-600">Initializing camera, please wait...</p>
+                  </div>
+                )}
+              </div>
             ) : (
               <div className="space-y-4">
                 <div className="relative mx-auto w-full max-w-[500px] aspect-square">
+                  {isLoadingCamera && (
+                    <div className="absolute inset-0 flex items-center justify-center bg-black bg-opacity-50 z-10 rounded">
+                      <div className="text-center">
+                        <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-white mx-auto"></div>
+                        <p className="text-white mt-2">Loading camera...</p>
+                      </div>
+                    </div>
+                  )}
                   <video
                     ref={videoRef}
                     autoPlay
@@ -873,16 +929,19 @@ export default function AuditPage() {
                     onChange={(e) => setCurrentTitle(e.target.value)}
                     placeholder="Enter image title (e.g., Crack on floor in living room)"
                     className="flex-grow border rounded px-3 py-2"
+                    disabled={isLoadingCamera}
                   />
                   <button
                     onClick={captureImage}
-                    className="bg-green-600 text-white py-2 px-4 rounded hover:bg-green-700 transition-colors"
+                    disabled={isLoadingCamera || !currentTitle}
+                    className={`bg-green-600 text-white py-2 px-4 rounded hover:bg-green-700 transition-colors ${(isLoadingCamera || !currentTitle) ? 'opacity-50 cursor-not-allowed' : ''}`}
                   >
                     Capture Image
                   </button>
                   <button
                     onClick={stopCamera}
-                    className="bg-red-600 text-white py-2 px-4 rounded hover:bg-red-700 transition-colors"
+                    disabled={isLoadingCamera}
+                    className={`bg-red-600 text-white py-2 px-4 rounded hover:bg-red-700 transition-colors ${isLoadingCamera ? 'opacity-50 cursor-not-allowed' : ''}`}
                   >
                     Stop Camera
                   </button>
