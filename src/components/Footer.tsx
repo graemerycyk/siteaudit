@@ -10,7 +10,7 @@ const Footer = () => {
           <div>
             <h3 className="text-xl font-bold mb-4">SiteAudit</h3>
             <p className="text-gray-300">
-              Professional site auditing, simple, effective, free.
+              Professional building site and snag list auditing. Simple, effective, free.
             </p>
           </div>
           
@@ -38,8 +38,7 @@ const Footer = () => {
           <div>
             <h3 className="text-xl font-bold mb-4">Contact</h3>
             <p className="text-gray-300">
-              Email: info@siteaudit.com<br />
-              Phone: +44 123 456 7890
+              Email: support@siteaudit.com<br />
             </p>
           </div>
         </div>
