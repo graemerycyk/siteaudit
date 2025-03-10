@@ -159,7 +159,7 @@ export default function AdvertisePage() {
     <div className="container mx-auto px-4 py-8">
       <div className="max-w-4xl mx-auto">
         <h1 className="text-3xl font-bold mb-2 text-center">Advertise With Us</h1>
-        <p className="text-gray-600 text-center mb-8">
+        <p className="text-white text-center mb-8">
           Reach our community of professionals and increase your brand visibility
         </p>
         
@@ -311,12 +311,12 @@ export default function AdvertisePage() {
             <div className="bg-gray-50 p-4 rounded-lg mb-6">
               <h3 className="font-medium text-black mb-2">Order Summary</h3>
               <div className="flex justify-between mb-2">
-                <span>Advertisement ({adDurationOptions.find(o => o.id === selectedDuration)?.name})</span>
-                <span>£{getSelectedPrice()}</span>
+                <span className="text-black">Advertisement ({adDurationOptions.find(o => o.id === selectedDuration)?.name})</span>
+                <span className="text-black">£{getSelectedPrice()}</span>
               </div>
               <div className="border-t border-gray-200 my-2 pt-2 flex justify-between font-bold">
-                <span>Total</span>
-                <span>£{getSelectedPrice()}</span>
+                <span className="text-black">Total</span>
+                <span className="text-black">£{getSelectedPrice()}</span>
               </div>
             </div>
             
