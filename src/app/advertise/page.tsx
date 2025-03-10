@@ -296,7 +296,7 @@ export default function AdvertisePage() {
                         onChange={() => setSelectedDuration(option.id)}
                         className="h-4 w-4 text-blue-600 focus:ring-blue-500"
                       />
-                      <label htmlFor={option.id} className="ml-2 font-medium">
+                      <label htmlFor={option.id} className="ml-2 font-medium text-black">
                         {option.name}
                       </label>
                     </div>
