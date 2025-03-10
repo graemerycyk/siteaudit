@@ -20,14 +20,12 @@ export default function AuditPage() {
   const [isDrawing, setIsDrawing] = useState(false);
   const [showPdfForm, setShowPdfForm] = useState(false);
   const [currentImageIndex, setCurrentImageIndex] = useState<number | null>(null);
-  const [useDirectCapture, setUseDirectCapture] = useState(false);
   const [showOfflineNotice, setShowOfflineNotice] = useState(true);
   
   const videoRef = useRef<HTMLVideoElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const signatureCanvasRef = useRef<HTMLCanvasElement>(null);
   const annotationCanvasRef = useRef<HTMLCanvasElement>(null);
-  const fileInputRef = useRef<HTMLInputElement>(null);
   
   // Load saved data from localStorage on component mount
   useEffect(() => {
