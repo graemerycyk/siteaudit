@@ -110,7 +110,7 @@ export default function Home() {
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M20.488 9H15V3.512A9.025 9.025 0 0120.488 9z" />
                 </svg>
               </div>
-              <h3 className="text-xl font-semibold mb-2">Advertising</h3>
+              <h3 className="text-xl font-semibold mb-2">Advertise With Us</h3>
               <p className="text-black mb-4">
                 Why not promote your building business with SiteAudit? Our site generates 10,000s of view per month from 1000s of clients, building managers and industry professionals from across the buidling trade.
               </p>
