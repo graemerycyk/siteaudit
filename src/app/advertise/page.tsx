@@ -273,7 +273,7 @@ export default function AdvertisePage() {
             
             {/* Duration Options */}
             <div className="mb-6">
-              <label className="block text-black-600 font-medium mb-2">
+              <label className="block text-black font-medium mb-2">
                 Advertisement Duration
               </label>
               <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
@@ -300,7 +300,7 @@ export default function AdvertisePage() {
                         {option.name}
                       </label>
                     </div>
-                    <p className="text-gray-600 text-sm mb-2">{option.description}</p>
+                    <p className="text-black text-sm mb-2">{option.description}</p>
                     <p className="text-lg font-bold text-blue-600">£{option.price}</p>
                   </div>
                 ))}
@@ -309,7 +309,7 @@ export default function AdvertisePage() {
             
             {/* Summary */}
             <div className="bg-gray-50 p-4 rounded-lg mb-6">
-              <h3 className="font-medium text-black-600 mb-2">Order Summary</h3>
+              <h3 className="font-medium text-black mb-2">Order Summary</h3>
               <div className="flex justify-between mb-2">
                 <span>Advertisement ({adDurationOptions.find(o => o.id === selectedDuration)?.name})</span>
                 <span>£{getSelectedPrice()}</span>

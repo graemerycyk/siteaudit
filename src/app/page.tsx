@@ -94,7 +94,7 @@ export default function Home() {
                 </svg>
               </div>
               <h3 className="text-xl font-semibold mb-2">Site Audit Tool</h3>
-              <p className="text-black-600 mb-4">
+              <p className="text-black mb-4">
                 Capture images, add annotations, and generate professional PDF reports for your site inspections.
               </p>
               <Link href="/audit" className="text-blue-600 hover:text-blue-800 font-medium">
@@ -111,7 +111,7 @@ export default function Home() {
                 </svg>
               </div>
               <h3 className="text-xl font-semibold mb-2">Advertising</h3>
-              <p className="text-black-600 mb-4">
+              <p className="text-black mb-4">
                 Why not promote your building business with SiteAudit? Our site generates 10,000s of view per month from 1000s of clients, building managers and industry professionals from across the buidling trade.
               </p>
               <Link href="/advertise" className="text-blue-600 hover:text-blue-800 font-medium">
@@ -127,7 +127,7 @@ export default function Home() {
                 </svg>
               </div>
               <h3 className="text-xl font-semibold mb-2">Support</h3>
-              <p className="text-black-600 mb-4">
+              <p className="text-black mb-4">
                 Our team is here to help you get the most out of SiteAudit. Contact us for assistance with any questions.
               </p>
               <a href="mailto:support@siteaudit.com" className="text-blue-600 hover:text-blue-800 font-medium">
