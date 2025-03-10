@@ -99,6 +99,9 @@ export default function AuditPage() {
     }
     
     try {
+      // Set wasStreamActive to true since we're explicitly starting the camera
+      setWasStreamActive(true);
+      
       console.log('📱 Browser info:', 
         navigator.userAgent, 
         'isSafari:', /^((?!chrome|android).)*safari/i.test(navigator.userAgent)
@@ -124,142 +127,72 @@ export default function AuditPage() {
         return;
       }
       
-      const mediaStream = await navigator.mediaDevices.getUserMedia(constraints);
-      console.log('✅ Camera stream obtained successfully');
-      
-      // Log track information
-      const videoTracks = mediaStream.getVideoTracks();
-      console.log('📹 Video tracks:', videoTracks.length);
-      videoTracks.forEach((track, index) => {
-        console.log(`Track ${index + 1}:`, track.label, 'Enabled:', track.enabled, 'Settings:', track.getSettings());
-      });
-      
-      setStream(mediaStream);
-      
-      if (videoRef.current) {
-        console.log('🎥 Setting video source object');
-        videoRef.current.srcObject = mediaStream;
-        videoRef.current.playsInline = true;
-        
-        // Wait for video to be loaded before playing
-        console.log('⏳ Adding loadedmetadata event listener');
-        videoRef.current.addEventListener('loadedmetadata', () => {
-          console.log('📊 Video metadata loaded, attempting to play');
-          console.log('📐 Video dimensions:', videoRef.current?.videoWidth, 'x', videoRef.current?.videoHeight);
-          
-          if (videoRef.current) {
-            console.log('▶️ Calling play() method');
-            videoRef.current.play()
-              .then(() => {
-                console.log('🎬 Video playback started successfully');
-                console.log('📺 Video element properties:', {
-                  width: videoRef.current?.offsetWidth,
-                  height: videoRef.current?.offsetHeight,
-                  videoWidth: videoRef.current?.videoWidth,
-                  videoHeight: videoRef.current?.videoHeight,
-                  paused: videoRef.current?.paused,
-                  ended: videoRef.current?.ended,
-                  readyState: videoRef.current?.readyState,
-                  error: videoRef.current?.error
-                });
-                setIsLoadingCamera(false);
-              })
-              .catch(e => {
-                console.error('❌ Error playing video:', e);
-                alert('Error playing video. Please check console for details.');
-                setIsLoadingCamera(false);
-              });
-          }
-        });
-        
-        // Add error event listener
-        videoRef.current.addEventListener('error', (e) => {
-          console.error('❌ Video element error:', e);
-          setIsLoadingCamera(false);
-        });
-      } else {
-        console.error('❌ videoRef.current is null');
-        setIsLoadingCamera(false);
-      }
-    } catch (error) {
-      console.error('❌ Error accessing camera:', error);
-      // If environment camera fails, try any available camera
       try {
-        console.log('🔄 Falling back to default camera');
-        const fallbackConstraints = {
-          video: true,
-          audio: false
-        };
-        console.log('📷 Requesting fallback camera with constraints:', JSON.stringify(fallbackConstraints));
-        const mediaStream = await navigator.mediaDevices.getUserMedia(fallbackConstraints);
-        console.log('✅ Fallback camera stream obtained');
+        const mediaStream = await navigator.mediaDevices.getUserMedia(constraints);
+        console.log('✅ Camera stream obtained successfully');
         
         // Log track information
         const videoTracks = mediaStream.getVideoTracks();
-        console.log('📹 Fallback video tracks:', videoTracks.length);
+        console.log('📹 Video tracks:', videoTracks.length);
         videoTracks.forEach((track, index) => {
-          console.log(`Fallback track ${index + 1}:`, track.label, 'Enabled:', track.enabled, 'Settings:', track.getSettings());
+          console.log(`Track ${index + 1}:`, track.label, 'Enabled:', track.enabled, 'Settings:', track.getSettings());
         });
         
         setStream(mediaStream);
         
         if (videoRef.current) {
-          console.log('🎥 Setting fallback video source object');
+          console.log('🎥 Setting video source object');
           videoRef.current.srcObject = mediaStream;
           videoRef.current.playsInline = true;
           
-          console.log('⏳ Adding fallback loadedmetadata event listener');
+          // Wait for video to be loaded before playing
+          console.log('⏳ Adding loadedmetadata event listener');
           videoRef.current.addEventListener('loadedmetadata', () => {
-            console.log('📊 Fallback video metadata loaded, attempting to play');
-            console.log('📐 Fallback video dimensions:', videoRef.current?.videoWidth, 'x', videoRef.current?.videoHeight);
+            console.log('📊 Video metadata loaded, attempting to play');
+            console.log('📐 Video dimensions:', videoRef.current?.videoWidth, 'x', videoRef.current?.videoHeight);
             
             if (videoRef.current) {
-              console.log('▶️ Calling fallback play() method');
+              console.log('▶️ Calling play() method');
               videoRef.current.play()
                 .then(() => {
-                  console.log('🎬 Fallback video playback started successfully');
-                  console.log('📺 Fallback video element properties:', {
-                    width: videoRef.current?.offsetWidth,
-                    height: videoRef.current?.offsetHeight,
-                    videoWidth: videoRef.current?.videoWidth,
-                    videoHeight: videoRef.current?.videoHeight,
-                    paused: videoRef.current?.paused,
-                    ended: videoRef.current?.ended,
-                    readyState: videoRef.current?.readyState,
-                    error: videoRef.current?.error
-                  });
-                  setIsLoadingCamera(false);
+                  console.log('🎬 Video playback started successfully');
                 })
-                .catch(e => {
-                  console.error('❌ Error playing fallback video:', e);
-                  alert('Error playing video. Please check console for details.');
-                  setIsLoadingCamera(false);
+                .catch(error => {
+                  console.error('❌ Error starting video playback:', error);
+                  alert('Failed to start video playback. Please check your camera permissions and try again.');
+                  stopCamera();
                 });
             }
           });
-          
-          // Add error event listener
-          videoRef.current.addEventListener('error', (e) => {
-            console.error('❌ Fallback video element error:', e);
-            setIsLoadingCamera(false);
-          });
         } else {
-          console.error('❌ videoRef.current is null for fallback');
-          setIsLoadingCamera(false);
+          console.error('❌ videoRef.current is null after getting stream');
+          alert('Video element not available. Please try refreshing the page.');
+          stopCamera();
         }
-      } catch (fallbackError) {
-        console.error('❌ Error accessing any camera:', fallbackError);
-        alert('Error accessing camera. Please make sure you have granted camera permissions.');
-        setIsLoadingCamera(false);
+      } catch (mediaError) {
+        console.error('❌ Error getting media stream:', mediaError);
+        alert('Failed to access camera. Please check your camera permissions and try again.');
+        stopCamera();
       }
+    } catch (error) {
+      console.error('❌ Unexpected error in startCamera:', error);
+      alert('An unexpected error occurred. Please try refreshing the page.');
+      setIsLoadingCamera(false);
     }
   };
   
   // Stop camera - wrapped in useCallback to prevent dependency changes
   const stopCamera = useCallback(() => {
+    console.log('🛑 stopCamera function called');
     if (stream) {
-      stream.getTracks().forEach(track => track.stop());
+      console.log('🛑 Stopping all tracks in stream');
+      stream.getTracks().forEach(track => {
+        console.log(`🛑 Stopping track: ${track.label}`);
+        track.stop();
+      });
       setStream(null);
+    } else {
+      console.log('⚠️ No stream to stop');
     }
     setIsLoadingCamera(false);
   }, [stream]);
@@ -291,7 +224,10 @@ export default function AuditPage() {
             
             // Short delay before restarting
             setTimeout(() => {
-              startCamera();
+              // Only restart if we're still in the same state
+              if (document.visibilityState === 'visible' && !showPdfForm) {
+                startCamera();
+              }
             }, 300);
           }
         }
@@ -299,7 +235,11 @@ export default function AuditPage() {
         console.log('📱 Page is now hidden');
         
         // Remember if stream was active
-        setWasStreamActive(!!stream);
+        if (stream) {
+          setWasStreamActive(true);
+          // Store the timestamp when the page was hidden
+          sessionStorage.setItem('lastPageHiddenTime', Date.now().toString());
+        }
       }
     };
     
@@ -310,7 +250,7 @@ export default function AuditPage() {
     return () => {
       document.removeEventListener('visibilitychange', handleVisibilityChange);
     };
-  }, [stream, wasStreamActive, stopCamera, startCamera, showPdfForm]);
+  }, [stream, wasStreamActive, stopCamera, startCamera, showPdfForm, isLoadingCamera]);
   
   // Capture image
   const captureImage = () => {
@@ -1002,16 +942,22 @@ export default function AuditPage() {
             stopCamera();
           }
           
-          // Prompt user to restart camera
-          const shouldRestart = window.confirm('Would you like to restart the camera?');
-          
-          if (shouldRestart) {
-            setTimeout(() => {
-              startCamera();
-            }, 300);
-          } else {
-            // If user declines, reset wasStreamActive
-            setWasStreamActive(false);
+          // Only prompt if we're not already loading the camera
+          if (!isLoadingCamera) {
+            // Prompt user to restart camera
+            const shouldRestart = window.confirm('Would you like to restart the camera?');
+            
+            if (shouldRestart) {
+              setTimeout(() => {
+                // Only restart if we're still in the same state
+                if (document.visibilityState === 'visible' && !showPdfForm && !isLoadingCamera) {
+                  startCamera();
+                }
+              }, 300);
+            } else {
+              // If user declines, reset wasStreamActive
+              setWasStreamActive(false);
+            }
           }
         }
       } else if (document.visibilityState === 'hidden') {
@@ -1025,7 +971,7 @@ export default function AuditPage() {
     return () => {
       document.removeEventListener('visibilitychange', handleVisibilityChange);
     };
-  }, [stream, wasStreamActive, stopCamera, startCamera, showPdfForm]);
+  }, [stream, wasStreamActive, stopCamera, startCamera, showPdfForm, isLoadingCamera]);
   
   // Add an effect to handle camera state when showing PDF form
   useEffect(() => {
@@ -1037,6 +983,22 @@ export default function AuditPage() {
       // when returning from the PDF form
     }
   }, [showPdfForm, stream, stopCamera]);
+  
+  // Reset camera state on component mount
+  useEffect(() => {
+    console.log('🔄 Component mounted, resetting camera state');
+    // Reset camera-related state on component mount
+    setWasStreamActive(false);
+    setIsLoadingCamera(false);
+    
+    // Clean up on unmount
+    return () => {
+      if (stream) {
+        console.log('🧹 Cleaning up camera on component unmount');
+        stopCamera();
+      }
+    };
+  }, [stopCamera, stream]);
   
   return (
     <div className="container mx-auto px-4 py-8">
@@ -1080,7 +1042,15 @@ export default function AuditPage() {
             {!stream ? (
               <div>
                 <button
-                  onClick={startCamera}
+                  onClick={() => {
+                    console.log('📸 Start Camera button clicked');
+                    // Reset any state that might be preventing camera start
+                    setWasStreamActive(false);
+                    // Call startCamera with a slight delay to ensure state is updated
+                    setTimeout(() => {
+                      startCamera();
+                    }, 100);
+                  }}
                   disabled={isLoadingCamera}
                   className={`bg-blue-600 text-white py-2 px-4 rounded hover:bg-blue-700 transition-colors ${isLoadingCamera ? 'opacity-50 cursor-not-allowed' : ''}`}
                 >
