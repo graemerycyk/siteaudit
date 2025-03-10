@@ -29,6 +29,7 @@ export default function AuditPage() {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const signatureCanvasRef = useRef<HTMLCanvasElement>(null);
   const annotationCanvasRef = useRef<HTMLCanvasElement>(null);
+  const annotationSectionRef = useRef<HTMLDivElement>(null);
   
   // Load saved data from localStorage on component mount
   useEffect(() => {
@@ -675,6 +676,12 @@ export default function AuditPage() {
               canvasWidth: canvas.width,
               canvasHeight: canvas.height
             });
+            
+            // Scroll to the annotation section
+            if (annotationSectionRef.current) {
+              annotationSectionRef.current.scrollIntoView({ behavior: 'smooth', block: 'start' });
+              console.log('📜 Scrolled to annotation section');
+            }
           };
           
           // Handle image loading errors
@@ -925,6 +932,35 @@ export default function AuditPage() {
     console.log('🔄 Started new report - all data cleared');
   };
   
+  // Effect to handle returning from PDF form (signature view)
+  useEffect(() => {
+    // If we're returning from the PDF form to the main view
+    if (!showPdfForm && wasStreamActive) {
+      console.log('🔄 Returning from signature view to main view');
+      // Short delay to ensure UI is updated
+      setTimeout(() => {
+        // If there's no active stream or the stream tracks are not active, restart the camera
+        if (!stream || stream.getVideoTracks().some(track => !track.enabled || track.readyState !== 'live')) {
+          console.log('📷 Restarting camera after returning from signature view');
+          // Stop any existing stream first to ensure clean restart
+          if (stream) {
+            stopCamera();
+          }
+          // Start the camera again
+          startCamera();
+        } else {
+          console.log('✅ Camera stream is already active, no need to restart');
+        }
+      }, 300);
+    }
+    
+    // When going to PDF form, remember if stream was active
+    if (showPdfForm && stream) {
+      console.log('📝 Going to signature view, remembering camera was active');
+      setWasStreamActive(true);
+    }
+  }, [showPdfForm, wasStreamActive, stream, stopCamera, startCamera]);
+  
   return (
     <div className="container mx-auto px-4 py-8">
       <h1 className="text-3xl font-bold mb-8 text-center">Site Audit Tool</h1>
@@ -1082,7 +1118,7 @@ export default function AuditPage() {
               </div>
               
               {currentImageIndex !== null && (
-                <div className="border rounded p-4 mb-6">
+                <div ref={annotationSectionRef} className="border rounded p-4 mb-6">
                   <h3 className="font-medium mb-2">
                     Annotating: {capturedImages[currentImageIndex].title}
                   </h3>
@@ -1123,23 +1159,12 @@ export default function AuditPage() {
               
               <button
                 onClick={() => setShowPdfForm(true)}
-                className="bg-green-600 text-white py-2 px-6 rounded hover:bg-green-700 transition-colors"
+                className="bg-blue-600 text-white py-2 px-6 rounded hover:bg-blue-700 transition-colors"
               >
                 Generate PDF Report
               </button>
             </div>
           )}
-          <div className="mt-12 text-center">
-            <button
-              onClick={startNewReport}
-              className="bg-indigo-600 text-white py-3 px-6 rounded-lg hover:bg-indigo-700 transition-colors inline-flex items-center justify-center shadow-md"
-            >
-              <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-2" viewBox="0 0 20 20" fill="currentColor">
-                <path fillRule="evenodd" d="M4 2a1 1 0 011 1v2.101a7.002 7.002 0 0111.601 2.566 1 1 0 11-1.885.666A5.002 5.002 0 005.999 7H9a1 1 0 010 2H4a1 1 0 01-1-1V3a1 1 0 011-1zm.008 9.057a1 1 0 011.276.61A5.002 5.002 0 0014.001 13H11a1 1 0 110-2h5a1 1 0 011 1v5a1 1 0 11-2 0v-2.101a7.002 7.002 0 01-11.601-2.566 1 1 0 01.61-1.276z" clipRule="evenodd" />
-              </svg>
-              Start New Report
-            </button>
-          </div>
         </div>
         
       ) : (
@@ -1212,17 +1237,19 @@ export default function AuditPage() {
             </div>
           </div>
           
-          <div className="mt-12 text-center">
-            <button
-              onClick={startNewReport}
-              className="bg-indigo-600 text-white py-3 px-6 rounded-lg hover:bg-indigo-700 transition-colors inline-flex items-center justify-center shadow-md"
-            >
-              <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-2" viewBox="0 0 20 20" fill="currentColor">
-                <path fillRule="evenodd" d="M4 2a1 1 0 011 1v2.101a7.002 7.002 0 0111.601 2.566 1 1 0 11-1.885.666A5.002 5.002 0 005.999 7H9a1 1 0 010 2H4a1 1 0 01-1-1V3a1 1 0 011-1zm.008 9.057a1 1 0 011.276.61A5.002 5.002 0 0014.001 13H11a1 1 0 110-2h5a1 1 0 011 1v5a1 1 0 11-2 0v-2.101a7.002 7.002 0 01-11.601-2.566 1 1 0 01.61-1.276z" clipRule="evenodd" />
-              </svg>
-              Start New Report
-            </button>
-          </div>
+          {capturedImages.length > 0 && (
+            <div className="mt-12 text-center">
+              <button
+                onClick={startNewReport}
+                className="bg-indigo-600 text-white py-3 px-6 rounded-lg hover:bg-indigo-700 transition-colors inline-flex items-center justify-center shadow-md"
+              >
+                <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-2" viewBox="0 0 20 20" fill="currentColor">
+                  <path fillRule="evenodd" d="M4 2a1 1 0 011 1v2.101a7.002 7.002 0 0111.601 2.566 1 1 0 11-1.885.666A5.002 5.002 0 005.999 7H9a1 1 0 010 2H4a1 1 0 01-1-1V3a1 1 0 011-1zm.008 9.057a1 1 0 011.276.61A5.002 5.002 0 0014.001 13H11a1 1 0 110-2h5a1 1 0 011 1v5a1 1 0 11-2 0v-2.101a7.002 7.002 0 01-11.601-2.566 1 1 0 01.61-1.276z" clipRule="evenodd" />
+                </svg>
+                Start New Report
+              </button>
+            </div>
+          )}
         </div>
       )}
     </div>
