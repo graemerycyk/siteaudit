@@ -274,6 +274,9 @@ export default function AuditPage() {
   
   // Handle annotation drawing
   const startDrawing = (e: React.MouseEvent<HTMLCanvasElement> | React.TouchEvent<HTMLCanvasElement>) => {
+    // Prevent default behavior to stop scrolling on touch devices
+    e.preventDefault();
+    
     if (annotationCanvasRef.current && currentImageIndex !== null) {
       setIsDrawing(true);
       const canvas = annotationCanvasRef.current;
@@ -286,12 +289,18 @@ export default function AuditPage() {
         let x, y;
         
         if ('touches' in e) {
+          // For touch events
           x = e.touches[0].clientX - rect.left;
           y = e.touches[0].clientY - rect.top;
         } else {
+          // For mouse events
           x = e.clientX - rect.left;
           y = e.clientY - rect.top;
         }
+        
+        // Scale coordinates to match canvas size
+        x = (x / rect.width) * canvas.width;
+        y = (y / rect.height) * canvas.height;
         
         context.moveTo(x, y);
       }
@@ -299,6 +308,9 @@ export default function AuditPage() {
   };
   
   const draw = (e: React.MouseEvent<HTMLCanvasElement> | React.TouchEvent<HTMLCanvasElement>) => {
+    // Prevent default behavior to stop scrolling on touch devices
+    e.preventDefault();
+    
     if (isDrawing && annotationCanvasRef.current) {
       const canvas = annotationCanvasRef.current;
       const context = canvas.getContext('2d');
@@ -308,22 +320,35 @@ export default function AuditPage() {
         let x, y;
         
         if ('touches' in e) {
+          // For touch events
           x = e.touches[0].clientX - rect.left;
           y = e.touches[0].clientY - rect.top;
         } else {
+          // For mouse events
           x = e.clientX - rect.left;
           y = e.clientY - rect.top;
         }
+        
+        // Scale coordinates to match canvas size
+        x = (x / rect.width) * canvas.width;
+        y = (y / rect.height) * canvas.height;
         
         context.lineTo(x, y);
         context.strokeStyle = 'red';
         context.lineWidth = 3;
         context.stroke();
+        
+        // Start a new path to avoid connecting lines when drawing multiple strokes
+        context.beginPath();
+        context.moveTo(x, y);
       }
     }
   };
   
-  const stopDrawing = () => {
+  const stopDrawing = (e?: React.MouseEvent<HTMLCanvasElement> | React.TouchEvent<HTMLCanvasElement>) => {
+    // Prevent default behavior if event is provided
+    if (e) e.preventDefault();
+    
     if (isDrawing && annotationCanvasRef.current && currentImageIndex !== null) {
       setIsDrawing(false);
       
@@ -339,6 +364,9 @@ export default function AuditPage() {
   
   // Handle signature drawing
   const startSignatureDrawing = (e: React.MouseEvent<HTMLCanvasElement> | React.TouchEvent<HTMLCanvasElement>) => {
+    // Prevent default behavior to stop scrolling on touch devices
+    e.preventDefault();
+    
     if (signatureCanvasRef.current) {
       setIsDrawing(true);
       const canvas = signatureCanvasRef.current;
@@ -351,12 +379,18 @@ export default function AuditPage() {
         let x, y;
         
         if ('touches' in e) {
+          // For touch events
           x = e.touches[0].clientX - rect.left;
           y = e.touches[0].clientY - rect.top;
         } else {
+          // For mouse events
           x = e.clientX - rect.left;
           y = e.clientY - rect.top;
         }
+        
+        // Scale coordinates to match canvas size
+        x = (x / rect.width) * canvas.width;
+        y = (y / rect.height) * canvas.height;
         
         context.moveTo(x, y);
       }
@@ -364,6 +398,9 @@ export default function AuditPage() {
   };
   
   const drawSignature = (e: React.MouseEvent<HTMLCanvasElement> | React.TouchEvent<HTMLCanvasElement>) => {
+    // Prevent default behavior to stop scrolling on touch devices
+    e.preventDefault();
+    
     if (isDrawing && signatureCanvasRef.current) {
       const canvas = signatureCanvasRef.current;
       const context = canvas.getContext('2d');
@@ -373,22 +410,35 @@ export default function AuditPage() {
         let x, y;
         
         if ('touches' in e) {
+          // For touch events
           x = e.touches[0].clientX - rect.left;
           y = e.touches[0].clientY - rect.top;
         } else {
+          // For mouse events
           x = e.clientX - rect.left;
           y = e.clientY - rect.top;
         }
+        
+        // Scale coordinates to match canvas size
+        x = (x / rect.width) * canvas.width;
+        y = (y / rect.height) * canvas.height;
         
         context.lineTo(x, y);
         context.strokeStyle = 'black';
         context.lineWidth = 2;
         context.stroke();
+        
+        // Start a new path to avoid connecting lines when drawing multiple strokes
+        context.beginPath();
+        context.moveTo(x, y);
       }
     }
   };
   
-  const stopSignatureDrawing = () => {
+  const stopSignatureDrawing = (e?: React.MouseEvent<HTMLCanvasElement> | React.TouchEvent<HTMLCanvasElement>) => {
+    // Prevent default behavior if event is provided
+    if (e) e.preventDefault();
+    
     if (isDrawing && signatureCanvasRef.current) {
       setIsDrawing(false);
       
@@ -504,11 +554,17 @@ export default function AuditPage() {
       
       if (context) {
         const img = new window.Image();
+        img.crossOrigin = 'anonymous'; // Add this to handle CORS issues
+        img.src = capturedImages[index].dataUrl;
+        
         img.onload = () => {
           // Make sure the canvas is square
-          const size = Math.min(canvas.clientWidth, canvas.clientHeight);
+          const size = Math.min(window.innerWidth - 40, 500); // Responsive size with max of 500px
           canvas.width = size;
           canvas.height = size;
+          
+          // Clear the canvas first
+          context.clearRect(0, 0, canvas.width, canvas.height);
           
           // Draw the image maintaining aspect ratio
           context.drawImage(img, 0, 0, size, size);
@@ -516,13 +572,20 @@ export default function AuditPage() {
           // If there's an existing annotation, draw it
           if (capturedImages[index].annotation) {
             const annotationImg = new window.Image();
+            annotationImg.crossOrigin = 'anonymous'; // Add this to handle CORS issues
+            annotationImg.src = capturedImages[index].annotation as string;
+            
             annotationImg.onload = () => {
               context.drawImage(annotationImg, 0, 0, size, size);
             };
-            annotationImg.src = capturedImages[index].annotation as string;
           }
         };
-        img.src = capturedImages[index].dataUrl;
+        
+        // Handle image loading errors
+        img.onerror = (error) => {
+          console.error('Error loading image for annotation:', error);
+          alert('Error loading image for annotation. Please try again.');
+        };
       }
     }
   };
@@ -553,6 +616,42 @@ export default function AuditPage() {
     const formattedDate = today.toISOString().split('T')[0];
     setCurrentDate(formattedDate);
   }, []);
+  
+  // Initialize canvases with proper dimensions
+  useEffect(() => {
+    // Initialize signature canvas
+    if (signatureCanvasRef.current) {
+      const canvas = signatureCanvasRef.current;
+      const context = canvas.getContext('2d');
+      
+      if (context) {
+        // Set canvas dimensions to match its display size
+        const rect = canvas.getBoundingClientRect();
+        canvas.width = rect.width;
+        canvas.height = rect.height;
+        
+        // Set up drawing properties
+        context.lineJoin = 'round';
+        context.lineCap = 'round';
+        context.strokeStyle = 'black';
+        context.lineWidth = 2;
+      }
+    }
+    
+    // Initialize annotation canvas when an image is selected
+    if (annotationCanvasRef.current && currentImageIndex !== null) {
+      const canvas = annotationCanvasRef.current;
+      const context = canvas.getContext('2d');
+      
+      if (context) {
+        // Set up drawing properties
+        context.lineJoin = 'round';
+        context.lineCap = 'round';
+        context.strokeStyle = 'red';
+        context.lineWidth = 3;
+      }
+    }
+  }, [currentImageIndex, showPdfForm]);
   
   // Check camera capabilities on mount
   useEffect(() => {
@@ -841,7 +940,8 @@ export default function AuditPage() {
                   <div className="relative mx-auto w-full max-w-[500px] aspect-square">
                     <canvas
                       ref={annotationCanvasRef}
-                      className="border w-full h-full bg-white"
+                      className="border w-full h-full bg-white rounded"
+                      style={{ touchAction: 'none' }}
                       onMouseDown={startDrawing}
                       onMouseMove={draw}
                       onMouseUp={stopDrawing}
@@ -849,6 +949,7 @@ export default function AuditPage() {
                       onTouchStart={startDrawing}
                       onTouchMove={draw}
                       onTouchEnd={stopDrawing}
+                      onTouchCancel={stopDrawing}
                     ></canvas>
                   </div>
                   <div className="flex justify-end mt-2">
@@ -906,11 +1007,13 @@ export default function AuditPage() {
             <div>
               <label className="block text-gray-700 mb-1">Signature</label>
               <div className="border rounded p-2 bg-white">
+                <p className="text-xs text-gray-500 mb-1">Sign below:</p>
                 <canvas
                   ref={signatureCanvasRef}
                   width={400}
                   height={150}
-                  className="border w-full"
+                  className="border w-full rounded"
+                  style={{ touchAction: 'none' }}
                   onMouseDown={startSignatureDrawing}
                   onMouseMove={drawSignature}
                   onMouseUp={stopSignatureDrawing}
@@ -918,6 +1021,7 @@ export default function AuditPage() {
                   onTouchStart={startSignatureDrawing}
                   onTouchMove={drawSignature}
                   onTouchEnd={stopSignatureDrawing}
+                  onTouchCancel={stopSignatureDrawing}
                 ></canvas>
               </div>
               <button

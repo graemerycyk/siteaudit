@@ -51,7 +51,7 @@ export default function Home() {
       <section className="py-12 bg-gray-50">
         <div className="container mx-auto px-4">
           <h2 className="text-2xl font-bold text-center text-gray-800 mb-8">
-            Trusted by Leading Communities
+            Trusted by Leading Building Professionals
           </h2>
           <div className="flex flex-wrap justify-center items-center gap-8 md:gap-16">
             <div className="w-32 h-16 relative grayscale hover:grayscale-0 transition-all">
