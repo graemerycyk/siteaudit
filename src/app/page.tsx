@@ -32,13 +32,14 @@ export default function Home() {
               </div>
             </div>
             <div className="md:w-1/2">
-              <div className="relative w-full aspect-[474/317]">
+              <div className="relative w-full aspect-[1996/1121]">
                 <Image
                   src="/hero-image.jpg"
                   alt="Site Audit Tool"
                   fill
                   className="object-cover rounded-lg shadow-xl"
                   priority
+                  sizes="(max-width: 768px) 100vw, 50vw"
                 />
               </div>
             </div>
