@@ -182,7 +182,7 @@ export default function AdvertisePage() {
                 id="companyName"
                 value={companyName}
                 onChange={(e) => setCompanyName(e.target.value)}
-                className={`w-full border rounded-lg px-4 py-2 ${errors.companyName ? 'border-red-500' : 'border-gray-300'}`}
+                className={`w-full text-gray-500 border rounded-lg px-4 py-2 ${errors.companyName ? 'border-red-500' : 'border-gray-300'}`}
                 placeholder="Enter your company name"
               />
               {errors.companyName && (
@@ -200,7 +200,7 @@ export default function AdvertisePage() {
                 id="websiteUrl"
                 value={websiteUrl}
                 onChange={(e) => setWebsiteUrl(e.target.value)}
-                className={`w-full border rounded-lg px-4 py-2 ${errors.websiteUrl ? 'border-red-500' : 'border-gray-300'}`}
+                className={`w-full text-gray-500 border rounded-lg px-4 py-2 ${errors.websiteUrl ? 'border-red-500' : 'border-gray-300'}`}
                 placeholder="https://example.com"
               />
               {errors.websiteUrl && (
