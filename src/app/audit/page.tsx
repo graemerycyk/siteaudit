@@ -28,7 +28,13 @@ export default function AuditPage() {
   
   // Initialize camera
   const startCamera = async () => {
+    console.log('🔍 startCamera function called');
     try {
+      console.log('📱 Browser info:', 
+        navigator.userAgent, 
+        'isSafari:', /^((?!chrome|android).)*safari/i.test(navigator.userAgent)
+      );
+      
       // First try to get the environment camera with ideal resolution
       const constraints = {
         video: {
@@ -39,59 +45,132 @@ export default function AuditPage() {
         audio: false
       };
       
-      console.log('Requesting camera with constraints:', constraints);
+      console.log('📷 Requesting camera with constraints:', JSON.stringify(constraints));
+      
+      // Check if mediaDevices is available
+      if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+        console.error('❌ MediaDevices API not supported in this browser');
+        alert('Camera API not supported in this browser. Please try a different browser.');
+        return;
+      }
+      
       const mediaStream = await navigator.mediaDevices.getUserMedia(constraints);
-      console.log('Camera stream obtained:', mediaStream.getVideoTracks()[0].getSettings());
+      console.log('✅ Camera stream obtained successfully');
+      
+      // Log track information
+      const videoTracks = mediaStream.getVideoTracks();
+      console.log('📹 Video tracks:', videoTracks.length);
+      videoTracks.forEach((track, index) => {
+        console.log(`Track ${index + 1}:`, track.label, 'Enabled:', track.enabled, 'Settings:', track.getSettings());
+      });
+      
       setStream(mediaStream);
       
       if (videoRef.current) {
+        console.log('🎥 Setting video source object');
         videoRef.current.srcObject = mediaStream;
         videoRef.current.playsInline = true;
         
         // Wait for video to be loaded before playing
+        console.log('⏳ Adding loadedmetadata event listener');
         videoRef.current.addEventListener('loadedmetadata', () => {
-          console.log('Video metadata loaded, attempting to play');
+          console.log('📊 Video metadata loaded, attempting to play');
+          console.log('📐 Video dimensions:', videoRef.current?.videoWidth, 'x', videoRef.current?.videoHeight);
+          
           if (videoRef.current) {
+            console.log('▶️ Calling play() method');
             videoRef.current.play()
-              .then(() => console.log('Video playback started successfully'))
+              .then(() => {
+                console.log('🎬 Video playback started successfully');
+                console.log('📺 Video element properties:', {
+                  width: videoRef.current?.offsetWidth,
+                  height: videoRef.current?.offsetHeight,
+                  videoWidth: videoRef.current?.videoWidth,
+                  videoHeight: videoRef.current?.videoHeight,
+                  paused: videoRef.current?.paused,
+                  ended: videoRef.current?.ended,
+                  readyState: videoRef.current?.readyState,
+                  error: videoRef.current?.error
+                });
+              })
               .catch(e => {
-                console.error('Error playing video:', e);
+                console.error('❌ Error playing video:', e);
                 alert('Error playing video. Please check console for details.');
               });
           }
         });
+        
+        // Add error event listener
+        videoRef.current.addEventListener('error', (e) => {
+          console.error('❌ Video element error:', e);
+        });
+      } else {
+        console.error('❌ videoRef.current is null');
       }
     } catch (error) {
-      console.error('Error accessing camera:', error);
+      console.error('❌ Error accessing camera:', error);
       // If environment camera fails, try any available camera
       try {
-        console.log('Falling back to default camera');
+        console.log('🔄 Falling back to default camera');
         const fallbackConstraints = {
           video: true,
           audio: false
         };
+        console.log('📷 Requesting fallback camera with constraints:', JSON.stringify(fallbackConstraints));
         const mediaStream = await navigator.mediaDevices.getUserMedia(fallbackConstraints);
-        console.log('Fallback camera stream obtained:', mediaStream.getVideoTracks()[0].getSettings());
+        console.log('✅ Fallback camera stream obtained');
+        
+        // Log track information
+        const videoTracks = mediaStream.getVideoTracks();
+        console.log('📹 Fallback video tracks:', videoTracks.length);
+        videoTracks.forEach((track, index) => {
+          console.log(`Fallback track ${index + 1}:`, track.label, 'Enabled:', track.enabled, 'Settings:', track.getSettings());
+        });
+        
         setStream(mediaStream);
         
         if (videoRef.current) {
+          console.log('🎥 Setting fallback video source object');
           videoRef.current.srcObject = mediaStream;
           videoRef.current.playsInline = true;
           
+          console.log('⏳ Adding fallback loadedmetadata event listener');
           videoRef.current.addEventListener('loadedmetadata', () => {
-            console.log('Fallback video metadata loaded, attempting to play');
+            console.log('📊 Fallback video metadata loaded, attempting to play');
+            console.log('📐 Fallback video dimensions:', videoRef.current?.videoWidth, 'x', videoRef.current?.videoHeight);
+            
             if (videoRef.current) {
+              console.log('▶️ Calling fallback play() method');
               videoRef.current.play()
-                .then(() => console.log('Fallback video playback started successfully'))
+                .then(() => {
+                  console.log('🎬 Fallback video playback started successfully');
+                  console.log('📺 Fallback video element properties:', {
+                    width: videoRef.current?.offsetWidth,
+                    height: videoRef.current?.offsetHeight,
+                    videoWidth: videoRef.current?.videoWidth,
+                    videoHeight: videoRef.current?.videoHeight,
+                    paused: videoRef.current?.paused,
+                    ended: videoRef.current?.ended,
+                    readyState: videoRef.current?.readyState,
+                    error: videoRef.current?.error
+                  });
+                })
                 .catch(e => {
-                  console.error('Error playing fallback video:', e);
+                  console.error('❌ Error playing fallback video:', e);
                   alert('Error playing video. Please check console for details.');
                 });
             }
           });
+          
+          // Add error event listener
+          videoRef.current.addEventListener('error', (e) => {
+            console.error('❌ Fallback video element error:', e);
+          });
+        } else {
+          console.error('❌ videoRef.current is null for fallback');
         }
       } catch (fallbackError) {
-        console.error('Error accessing any camera:', fallbackError);
+        console.error('❌ Error accessing any camera:', fallbackError);
         alert('Error accessing camera. Please make sure you have granted camera permissions.');
       }
     }
@@ -423,21 +502,143 @@ export default function AuditPage() {
   // Check camera capabilities on mount
   useEffect(() => {
     const checkCameraCapabilities = async () => {
+      console.log('🔍 Checking camera capabilities');
+      console.log('📱 Browser info:', 
+        navigator.userAgent, 
+        'isSafari:', /^((?!chrome|android).)*safari/i.test(navigator.userAgent)
+      );
+      
       try {
+        // Check if mediaDevices is available
+        if (!navigator.mediaDevices) {
+          console.error('❌ MediaDevices API not supported in this browser');
+          return;
+        }
+        
+        console.log('✅ MediaDevices API is supported');
+        
+        // Check if getUserMedia is available
+        if (!navigator.mediaDevices.getUserMedia) {
+          console.error('❌ getUserMedia not supported in this browser');
+          return;
+        }
+        
+        console.log('✅ getUserMedia is supported');
+        
+        // Check if enumerateDevices is available
+        if (!navigator.mediaDevices.enumerateDevices) {
+          console.error('❌ enumerateDevices not supported in this browser');
+          return;
+        }
+        
+        console.log('✅ enumerateDevices is supported');
+        
         // Just check if we can enumerate devices
         const devices = await navigator.mediaDevices.enumerateDevices();
-        const videoDevices = devices.filter(device => device.kind === 'videoinput');
-        console.log('Available video devices:', videoDevices.length);
-        videoDevices.forEach((device, index) => {
-          console.log(`Camera ${index + 1}:`, device.label || `Camera ${index + 1} (no label available)`);
+        console.log('📱 All devices:', devices.length);
+        
+        // Log all devices
+        devices.forEach((device, index) => {
+          console.log(`Device ${index + 1}:`, {
+            kind: device.kind,
+            deviceId: device.deviceId,
+            label: device.label || `Device ${index + 1} (no label available)`,
+            groupId: device.groupId
+          });
         });
+        
+        const videoDevices = devices.filter(device => device.kind === 'videoinput');
+        console.log('📹 Available video devices:', videoDevices.length);
+        
+        if (videoDevices.length === 0) {
+          console.warn('⚠️ No video devices found');
+        }
+        
+        videoDevices.forEach((device, index) => {
+          console.log(`Camera ${index + 1}:`, {
+            deviceId: device.deviceId,
+            label: device.label || `Camera ${index + 1} (no label available)`,
+            groupId: device.groupId
+          });
+        });
+        
+        // Safari specific check - if labels are empty, permissions might not be granted yet
+        if (videoDevices.length > 0 && !videoDevices[0].label) {
+          console.warn('⚠️ Camera labels are empty. On Safari, this usually means permissions have not been granted yet.');
+          console.log('ℹ️ On Safari, camera labels are only available after getUserMedia has been called with permission granted.');
+        }
+        
+        // Check for HTTPS
+        if (window.location.protocol !== 'https:' && window.location.hostname !== 'localhost') {
+          console.warn('⚠️ Not using HTTPS. Camera access may be blocked in some browsers.');
+        } else {
+          console.log('✅ Using secure context (HTTPS or localhost)');
+        }
       } catch (error) {
-        console.error('Error checking camera capabilities:', error);
+        console.error('❌ Error checking camera capabilities:', error);
       }
     };
     
     checkCameraCapabilities();
   }, []);
+  
+  // Safari-specific workaround for camera issues
+  useEffect(() => {
+    // Check if this is Safari
+    const isSafari = /^((?!chrome|android).)*safari/i.test(navigator.userAgent);
+    
+    if (isSafari && videoRef.current && stream) {
+      console.log('🧩 Applying Safari-specific workarounds');
+      
+      // Safari sometimes needs a timeout before playing
+      const safariWorkaround = () => {
+        if (videoRef.current) {
+          console.log('🔄 Attempting Safari workaround');
+          
+          // Sometimes detaching and reattaching the stream helps
+          const tracks = stream.getVideoTracks();
+          if (tracks.length > 0) {
+            console.log('🔌 Temporarily disabling track');
+            tracks[0].enabled = false;
+            
+            setTimeout(() => {
+              if (tracks[0]) {
+                console.log('🔌 Re-enabling track');
+                tracks[0].enabled = true;
+                
+                // Force a play attempt
+                if (videoRef.current && videoRef.current.paused) {
+                  console.log('▶️ Forcing play in Safari workaround');
+                  videoRef.current.play()
+                    .then(() => console.log('✅ Safari workaround play successful'))
+                    .catch(e => console.error('❌ Safari workaround play failed:', e));
+                }
+              }
+            }, 500);
+          }
+          
+          // Try setting srcObject again
+          setTimeout(() => {
+            if (videoRef.current && stream) {
+              console.log('🔄 Re-setting srcObject in Safari');
+              videoRef.current.srcObject = null;
+              setTimeout(() => {
+                if (videoRef.current && stream) {
+                  videoRef.current.srcObject = stream;
+                  videoRef.current.play()
+                    .then(() => console.log('✅ Safari re-setting srcObject successful'))
+                    .catch(e => console.error('❌ Safari re-setting srcObject failed:', e));
+                }
+              }, 100);
+            }
+          }, 1000);
+        }
+      };
+      
+      // Apply the workaround after a short delay
+      setTimeout(safariWorkaround, 1000);
+    }
+  }, [stream]);
   
   return (
     <div className="container mx-auto px-4 py-8">
@@ -465,6 +666,18 @@ export default function AuditPage() {
                     muted
                     className="w-full h-full object-cover rounded bg-black"
                     style={{ display: 'block' }}
+                    onLoadedMetadata={() => console.log('🎬 onLoadedMetadata event fired')}
+                    onLoadedData={() => console.log('📼 onLoadedData event fired')}
+                    onPlay={() => console.log('▶️ onPlay event fired')}
+                    onPlaying={() => console.log('🎭 onPlaying event fired')}
+                    onError={(e) => console.error('❌ onError event fired', e)}
+                    onCanPlay={() => console.log('✅ onCanPlay event fired')}
+                    onCanPlayThrough={() => console.log('✅✅ onCanPlayThrough event fired')}
+                    onStalled={() => console.log('⚠️ onStalled event fired')}
+                    onSuspend={() => console.log('⏸️ onSuspend event fired')}
+                    onWaiting={() => console.log('⏳ onWaiting event fired')}
+                    onEmptied={() => console.log('🗑️ onEmptied event fired')}
+                    onAbort={() => console.log('🛑 onAbort event fired')}
                   ></video>
                   <canvas ref={canvasRef} className="hidden"></canvas>
                 </div>
