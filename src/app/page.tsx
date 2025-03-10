@@ -94,9 +94,9 @@ export default function Home() {
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 13a3 3 0 11-6 0 3 3 0 016 0z" />
                 </svg>
               </div>
-              <h3 className="text-xl text-black font-semibold mb-2">Site Audit Tool</h3>
+              <h3 className="text-xl text-black font-semibold mb-2">Free Site Audit Tool</h3>
               <p className="text-black mb-4">
-                Capture images, add annotations, and generate professional PDF reports for your site inspections.
+                Capture images, add annotations, and generate signed detailed site audit reports in a PDF for your clients and site inspections. Works offline!
               </p>
               <Link href="/audit" className="text-blue-600 hover:text-blue-800 font-medium">
                 Try it now →
