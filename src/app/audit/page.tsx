@@ -936,22 +936,22 @@ export default function AuditPage() {
   useEffect(() => {
     // If we're returning from the PDF form to the main view
     if (!showPdfForm && wasStreamActive) {
-      console.log('🔄 Returning from signature view to main view');
-      // Short delay to ensure UI is updated
-      setTimeout(() => {
-        // If there's no active stream or the stream tracks are not active, restart the camera
-        if (!stream || stream.getVideoTracks().some(track => !track.enabled || track.readyState !== 'live')) {
-          console.log('📷 Restarting camera after returning from signature view');
-          // Stop any existing stream first to ensure clean restart
-          if (stream) {
-            stopCamera();
-          }
-          // Start the camera again
+      console.log('🔄 Returning to main view - resetting camera');
+      
+      // Always stop any existing stream first
+      if (stream) {
+        stopCamera();
+      }
+      
+      // Show a prompt to the user
+      const shouldRestart = window.confirm('Would you like to restart the camera?');
+      
+      if (shouldRestart) {
+        // Short delay before restarting
+        setTimeout(() => {
           startCamera();
-        } else {
-          console.log('✅ Camera stream is already active, no need to restart');
-        }
-      }, 300);
+        }, 100);
+      }
     }
     
     // When going to PDF form, remember if stream was active
@@ -960,6 +960,38 @@ export default function AuditPage() {
       setWasStreamActive(true);
     }
   }, [showPdfForm, wasStreamActive, stream, stopCamera, startCamera]);
+  
+  // Also handle page visibility changes (tab switching, etc.)
+  useEffect(() => {
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === 'visible' && wasStreamActive) {
+        console.log('📱 Page is now visible - prompting to restart camera');
+        
+        // Stop any existing stream
+        if (stream) {
+          stopCamera();
+        }
+        
+        // Prompt user to restart camera
+        const shouldRestart = window.confirm('Would you like to restart the camera?');
+        
+        if (shouldRestart) {
+          setTimeout(() => {
+            startCamera();
+          }, 100);
+        }
+      } else if (document.visibilityState === 'hidden' && stream) {
+        console.log('📱 Page is now hidden');
+        setWasStreamActive(true);
+      }
+    };
+    
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    
+    return () => {
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+    };
+  }, [stream, wasStreamActive, stopCamera, startCamera]);
   
   return (
     <div className="container mx-auto px-4 py-8">
